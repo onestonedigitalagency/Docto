@@ -45,22 +45,39 @@ CREATE TABLE IF NOT EXISTS patient_profiles (
 ALTER TABLE doctor_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE patient_profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own doctor profile" ON doctor_profiles;
 CREATE POLICY "Users can view own doctor profile"
     ON doctor_profiles FOR SELECT
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own doctor profile" ON doctor_profiles;
 CREATE POLICY "Users can update own doctor profile"
     ON doctor_profiles FOR UPDATE
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Anyone can view active doctor profiles" ON doctor_profiles;
 CREATE POLICY "Anyone can view active doctor profiles"
     ON doctor_profiles FOR SELECT
     USING (is_active = true);
 
+DROP POLICY IF EXISTS "Users can view own patient profile" ON patient_profiles;
 CREATE POLICY "Users can view own patient profile"
     ON patient_profiles FOR SELECT
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own patient profile" ON patient_profiles;
 CREATE POLICY "Users can update own patient profile"
     ON patient_profiles FOR UPDATE
     USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own doctor profile" ON doctor_profiles;
+CREATE POLICY "Users can insert own doctor profile"
+    ON doctor_profiles FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own patient profile" ON patient_profiles;
+CREATE POLICY "Users can insert own patient profile"
+    ON patient_profiles FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+
+

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth-store'
+import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -11,29 +12,41 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
-  const { setSession } = useAuthStore()
+  const { fetchProfile } = useAuthStore()
+  const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
 
-    // TODO: Implement actual Supabase auth
-    // const { error } = await supabase.auth.signInWithPassword({ email, password })
-    
-    // Mock login logic
-    setTimeout(() => {
-      if (email.includes('doctor')) {
-        setSession({ role: 'doctor', email, fullName: 'Dr. Jane Smith' })
-        router.push('/doctor/planner')
-      } else if (email.includes('patient')) {
-        setSession({ role: 'patient', email, fullName: 'Alex Johnson' })
-        router.push('/patient/dashboard')
-      } else {
-        setError('Use an email containing "doctor" or "patient" to test routing.')
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (authError) {
+        setError(authError.message)
         setIsLoading(false)
+        return
       }
-    }, 1000)
+
+      if (data?.user) {
+        const role = await fetchProfile(data.user.id)
+        if (role === 'doctor') {
+          router.push('/doctor/planner')
+        } else if (role === 'patient') {
+          router.push('/patient/dashboard')
+        } else {
+          setError('Profile not found. Please register or contact support.')
+          setIsLoading(false)
+        }
+      }
+    } catch (err: any) {
+      setError(err?.message || 'An unexpected error occurred.')
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -99,6 +112,20 @@ export default function LoginPage() {
 
         <button
           type="button"
+          onClick={async () => {
+            setError('')
+            setIsLoading(true)
+            const { error: oAuthError } = await supabase.auth.signInWithOAuth({
+              provider: 'google',
+              options: {
+                redirectTo: `${window.location.origin}/callback`
+              }
+            })
+            if (oAuthError) {
+              setError(oAuthError.message)
+              setIsLoading(false)
+            }
+          }}
           className="w-full py-2.5 px-4 bg-surface-container-lowest border border-border-subtle text-on-surface font-medium rounded-lg hover:bg-surface-container-low transition-colors shadow-sm flex items-center justify-center gap-2"
         >
           <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />

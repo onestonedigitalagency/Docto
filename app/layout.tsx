@@ -50,6 +50,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { AuthListener } from "@/components/shared/auth-listener";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -61,6 +63,7 @@ export default function RootLayout({
       className={`${hankenGrotesk.variable} ${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <AuthListener />
         {children}
       </body>
     </html>

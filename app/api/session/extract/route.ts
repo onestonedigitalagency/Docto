@@ -1,51 +1,39 @@
-import { NextResponse } from "next/server"
-import { genAI, CLINICAL_EXTRACTION_SYSTEM_PROMPT } from "@/lib/ai/gemini"
+import { genAI, CLINICAL_EXTRACTION_SYSTEM_PROMPT } from '@/lib/ai/gemini'
+import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
     const { transcript } = await req.json()
 
     if (!transcript) {
-      return NextResponse.json(
-        { error: "Transcript is required for extraction." },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'No transcript provided' }, { status: 400 })
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-       return NextResponse.json(
-        { error: "GEMINI_API_KEY is not configured." },
-        { status: 500 }
-      )
-    }
-
-    // Use Gemini 2.5 Pro (or 1.5 Pro) for high-quality structured extraction
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-pro", 
-      systemInstruction: CLINICAL_EXTRACTION_SYSTEM_PROMPT 
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      systemInstruction: CLINICAL_EXTRACTION_SYSTEM_PROMPT,
     })
 
-    const result = await model.generateContent(transcript)
-    const responseText = result.response.text()
-
-    try {
-      // Clean up the response if the model accidentally includes markdown blocks
-      const cleanJson = responseText.replace(/```json/g, "").replace(/```/g, "").trim()
-      const structuredData = JSON.parse(cleanJson)
-
-      return NextResponse.json({ data: structuredData })
-    } catch (parseError) {
-      console.error("Failed to parse Gemini output as JSON:", responseText)
-      return NextResponse.json(
-        { error: "Failed to parse AI response into structured data." },
-        { status: 500 }
-      )
-    }
-  } catch (error) {
-    console.error("Extraction API Error:", error)
-    return NextResponse.json(
-      { error: "An error occurred during AI extraction." },
-      { status: 500 }
+    const result = await model.generateContent(
+      `Here is the clinical session transcript:\n\n${transcript}`
     )
+
+    const responseText = result.response.text().trim()
+
+    // Attempt to parse JSON safely (remove potential markdown wrappers if Gemini didn't obey)
+    let cleanedText = responseText
+    if (cleanedText.startsWith('```')) {
+      cleanedText = cleanedText.replace(/^```json\s*/, '').replace(/```$/, '').trim()
+    }
+
+    const parsedResult = JSON.parse(cleanedText)
+
+    return NextResponse.json({
+      success: true,
+      data: parsedResult,
+    })
+  } catch (error: any) {
+    console.error('Session Extraction API Error:', error)
+    return NextResponse.json({ error: error?.message || 'Failed to extract session data' }, { status: 500 })
   }
 }

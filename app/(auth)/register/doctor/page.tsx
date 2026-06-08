@@ -3,22 +3,105 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 export default function DoctorRegisterPage() {
   const [step, setStep] = useState(1)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
   const router = useRouter()
+  const supabase = createClient()
 
-  const handleNext = (e: React.FormEvent) => {
+  // Form states
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    licenseNumber: '',
+    specialization: 'General Practice',
+    experienceYears: '',
+    clinicName: '',
+    consultationFee: '',
+    teleconsultation: true,
+    clinicVisit: true,
+  })
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked
+      setFormData((prev) => ({ ...prev, [name]: checked }))
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }))
+    }
+  }
+
+  const handleNext = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (step < 3) setStep(step + 1)
-    else router.push('/login')
+    setError('')
+
+    if (step < 3) {
+      setStep(step + 1)
+      return
+    }
+
+    // Submit flow on Step 3
+    setIsLoading(true)
+    try {
+      // 1. Sign up user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+      })
+
+      if (authError) {
+        setError(authError.message)
+        setIsLoading(false)
+        return
+      }
+
+      const user = authData?.user
+      if (!user) {
+        setError('Failed to create account user.')
+        setIsLoading(false)
+        return
+      }
+
+      // 2. Insert doctor profile using user id
+      const { error: profileError } = await supabase.from('doctor_profiles').insert({
+        user_id: user.id,
+        full_name: formData.fullName,
+        specialization: formData.specialization,
+        license_number: formData.licenseNumber,
+        experience_years: formData.experienceYears ? parseInt(formData.experienceYears, 10) : null,
+        clinic_name: formData.clinicName,
+        consultation_fee: formData.consultationFee ? parseFloat(formData.consultationFee) : null,
+        teleconsultation: formData.teleconsultation,
+        clinic_visit: formData.clinicVisit,
+        qualifications: [],
+      })
+
+      if (profileError) {
+        setError(profileError.message)
+        setIsLoading(false)
+        return
+      }
+
+      // Redirect on success
+      router.push('/login?registered=true')
+    } catch (err: any) {
+      setError(err?.message || 'An unexpected error occurred.')
+      setIsLoading(false)
+    }
   }
 
   return (
     <div>
       <div className="mb-8">
         <h2 className="text-headline-lg font-headline-lg text-deep-navy mb-2">Join as a Doctor</h2>
-        <p className="text-body-md text-on-surface-variant">Step {step} of 3: {step === 1 ? 'Personal Details' : step === 2 ? 'Professional Info' : 'Clinic Setup'}</p>
+        <p className="text-body-md text-on-surface-variant">
+          Step {step} of 3: {step === 1 ? 'Personal Details' : step === 2 ? 'Professional Info' : 'Clinic Setup'}
+        </p>
       </div>
 
       {/* Progress Bar */}
@@ -27,19 +110,49 @@ export default function DoctorRegisterPage() {
       </div>
 
       <form onSubmit={handleNext} className="space-y-5">
+        {error && (
+          <div className="p-3 bg-error-container text-on-error-container text-sm rounded-lg border border-error/20">
+            {error}
+          </div>
+        )}
+
         {step === 1 && (
           <div className="space-y-5 animate-fade-in-up">
             <div>
               <label className="block text-sm font-medium text-on-surface mb-1.5">Full Name</label>
-              <input required type="text" placeholder="Dr. Jane Smith" className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+              <input
+                required
+                type="text"
+                name="fullName"
+                value={formData.fullName}
+                onChange={handleInputChange}
+                placeholder="Dr. Jane Smith"
+                className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-on-surface mb-1.5">Email</label>
-              <input required type="email" placeholder="jane.smith@hospital.com" className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+              <input
+                required
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                placeholder="jane.smith@hospital.com"
+                className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-on-surface mb-1.5">Password</label>
-              <input required type="password" placeholder="••••••••" className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+              <input
+                required
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                placeholder="••••••••"
+                className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
             </div>
           </div>
         )}
@@ -48,20 +161,42 @@ export default function DoctorRegisterPage() {
           <div className="space-y-5 animate-fade-in-up">
             <div>
               <label className="block text-sm font-medium text-on-surface mb-1.5">Medical License Number</label>
-              <input required type="text" placeholder="LIC-123456" className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+              <input
+                required
+                type="text"
+                name="licenseNumber"
+                value={formData.licenseNumber}
+                onChange={handleInputChange}
+                placeholder="LIC-123456"
+                className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-on-surface mb-1.5">Specialization</label>
-              <select className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
-                <option>Cardiology</option>
-                <option>Neurology</option>
-                <option>General Practice</option>
-                <option>Pediatrics</option>
+              <select
+                name="specialization"
+                value={formData.specialization}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-on-surface"
+              >
+                <option value="Cardiology">Cardiology</option>
+                <option value="Neurology">Neurology</option>
+                <option value="General Practice">General Practice</option>
+                <option value="Pediatrics">Pediatrics</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-on-surface mb-1.5">Years of Experience</label>
-              <input required type="number" min="0" placeholder="10" className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+              <input
+                required
+                type="number"
+                name="experienceYears"
+                min="0"
+                value={formData.experienceYears}
+                onChange={handleInputChange}
+                placeholder="10"
+                className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
             </div>
           </div>
         )}
@@ -70,21 +205,50 @@ export default function DoctorRegisterPage() {
           <div className="space-y-5 animate-fade-in-up">
             <div>
               <label className="block text-sm font-medium text-on-surface mb-1.5">Clinic/Hospital Name</label>
-              <input required type="text" placeholder="City Medical Center" className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+              <input
+                required
+                type="text"
+                name="clinicName"
+                value={formData.clinicName}
+                onChange={handleInputChange}
+                placeholder="City Medical Center"
+                className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1.5">Consultation Fee (USD)</label>
-              <input required type="number" min="0" placeholder="150" className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+              <label className="block text-sm font-medium text-on-surface mb-1.5">Consultation Fee (INR)</label>
+              <input
+                required
+                type="number"
+                name="consultationFee"
+                min="0"
+                value={formData.consultationFee}
+                onChange={handleInputChange}
+                placeholder="500"
+                className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
             </div>
             <div className="flex gap-4">
-               <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
-                 <input type="checkbox" defaultChecked className="w-4 h-4 rounded text-primary focus:ring-primary" />
-                 Teleconsultation
-               </label>
-               <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
-                 <input type="checkbox" defaultChecked className="w-4 h-4 rounded text-primary focus:ring-primary" />
-                 In-Person Visit
-               </label>
+              <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="teleconsultation"
+                  checked={formData.teleconsultation}
+                  onChange={handleInputChange}
+                  className="w-4 h-4 rounded text-primary focus:ring-primary"
+                />
+                Teleconsultation
+              </label>
+              <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="clinicVisit"
+                  checked={formData.clinicVisit}
+                  onChange={handleInputChange}
+                  className="w-4 h-4 rounded text-primary focus:ring-primary"
+                />
+                In-Person Visit
+              </label>
             </div>
           </div>
         )}
@@ -94,16 +258,24 @@ export default function DoctorRegisterPage() {
             <button
               type="button"
               onClick={() => setStep(step - 1)}
-              className="px-4 py-2.5 bg-surface-container-lowest border border-border-subtle text-on-surface font-medium rounded-lg hover:bg-surface-container-low transition-colors shadow-sm"
+              disabled={isLoading}
+              className="px-4 py-2.5 bg-surface-container-lowest border border-border-subtle text-on-surface font-medium rounded-lg hover:bg-surface-container-low transition-colors shadow-sm disabled:opacity-50"
             >
               Back
             </button>
           )}
           <button
             type="submit"
-            className="flex-1 py-2.5 px-4 bg-primary text-on-primary font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
+            disabled={isLoading}
+            className="flex-1 py-2.5 px-4 bg-primary text-on-primary font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-70 flex items-center justify-center gap-2"
           >
-            {step === 3 ? 'Complete Registration' : 'Next Step'}
+            {isLoading ? (
+              <div className="w-5 h-5 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" />
+            ) : step === 3 ? (
+              'Complete Registration'
+            ) : (
+              'Next Step'
+            )}
           </button>
         </div>
       </form>

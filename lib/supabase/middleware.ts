@@ -30,9 +30,15 @@ export async function updateSession(request: NextRequest) {
   )
 
   // Refresh the session — important for Server Components
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser()
+    user = authUser
+  } catch (err) {
+    console.error('Supabase auth error in middleware:', err)
+  }
 
   // Redirect requests to deprecated /doctor/dashboard to /doctor/planner
   if (request.nextUrl.pathname === '/doctor/dashboard') {
@@ -60,11 +66,17 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone()
     
     // Check if user has a doctor profile
-    const { data: doctorProfile } = await supabase
-      .from('doctor_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle()
+    let doctorProfile = null
+    try {
+      const { data } = await supabase
+        .from('doctor_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      doctorProfile = data
+    } catch (err) {
+      console.error('Error querying doctor profile in middleware:', err)
+    }
 
     if (doctorProfile) {
       url.pathname = '/doctor/planner'
