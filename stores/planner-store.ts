@@ -31,18 +31,23 @@ export const usePlannerStore = create<PlannerState>((set, get) => {
       set({ isLoading: true })
       try {
         const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+        if (!user) {
+          set({ isLoading: false })
+          return
+        }
 
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('planner_tasks')
           .select('*')
           .eq('user_id', user.id)
           .order('due_date', { ascending: true })
 
         if (error) throw error
+        // alert('Fetched ' + (data?.length || 0) + ' tasks from DB')
         set({ tasks: data || [], isLoading: false })
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching planner tasks:', err)
+        alert('Failed to fetch tasks: ' + (err.message || 'Unknown error'))
         set({ isLoading: false })
       }
     },
@@ -52,7 +57,7 @@ export const usePlannerStore = create<PlannerState>((set, get) => {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('planner_tasks')
           .insert({
             user_id: user.id,
@@ -68,12 +73,16 @@ export const usePlannerStore = create<PlannerState>((set, get) => {
 
         if (error) throw error
         if (data) {
+          alert('Successfully inserted task: ' + JSON.stringify(data))
           set((state) => ({
             tasks: [...state.tasks, data],
           }))
+        } else {
+          alert('Insert returned null data.')
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error adding planner task:', err)
+        alert('Failed to add task: ' + (err.message || 'Unknown error'))
       }
     },
 
@@ -87,7 +96,7 @@ export const usePlannerStore = create<PlannerState>((set, get) => {
       }))
 
       try {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('planner_tasks')
           .update({ is_completed: !currentStatus })
           .eq('id', id)
@@ -108,7 +117,7 @@ export const usePlannerStore = create<PlannerState>((set, get) => {
       }))
 
       try {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('planner_tasks')
           .delete()
           .eq('id', id)

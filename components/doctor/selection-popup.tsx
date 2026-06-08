@@ -10,69 +10,66 @@ export function SelectionPopup() {
   const [resultPos, setResultPos] = useState({ top: 0, left: 0 })
   const [showResult, setShowResult] = useState(false)
 
+  // React states for popups
+  const [showTerm, setShowTerm] = useState(false)
+  const [termPos, setTermPos] = useState({ top: 0, left: 0 })
+
+  const [showBlock, setShowBlock] = useState(false)
+  const [blockPos, setBlockPos] = useState({ top: 0, left: 0 })
+
   useEffect(() => {
     const termEl = document.getElementById('term-neuroplasticity')
     const blockEl = document.getElementById('block-selection-target')
-    const termPopup = document.getElementById('popup-term')
-    const blockPopup = document.getElementById('popup-block')
 
-    if (!termEl || !blockEl || !termPopup || !blockPopup) return
+    if (!termEl || !blockEl) return
 
     // Show term popup on hover
     const handleTermEnter = (e: MouseEvent) => {
       const rect = termEl.getBoundingClientRect()
-      termPopup.style.top = `${rect.top - 60 + window.scrollY}px`
-      termPopup.style.left = `${rect.left + (rect.width/2) - (termPopup.offsetWidth/2) || rect.left}px`
-      termPopup.classList.remove('hidden')
-      blockPopup.classList.add('hidden')
+      setTermPos({
+        top: rect.top - 65 + window.scrollY,
+        left: rect.left + (rect.width / 2) - 75
+      })
+      setShowTerm(true)
+      setShowBlock(false)
     }
-
     termEl.addEventListener('mouseenter', handleTermEnter)
-
-    // Keep it visible while hovering popup
-    const handlePopupEnter = () => {
-      termPopup.classList.remove('hidden')
-    }
-    termPopup.addEventListener('mouseenter', handlePopupEnter)
 
     // Hide on leave
     const handleTermLeave = () => {
       setTimeout(() => {
-        if(!termPopup.matches(':hover')) {
-          termPopup.classList.add('hidden')
+        const popup = document.getElementById('popup-term')
+        if (popup && !popup.matches(':hover')) {
+          setShowTerm(false)
         }
       }, 100)
     }
     termEl.addEventListener('mouseleave', handleTermLeave)
-    
-    const handlePopupLeave = () => {
-      termPopup.classList.add('hidden')
-    }
-    termPopup.addEventListener('mouseleave', handlePopupLeave)
 
     // Show block popup on click
     const handleBlockClick = (e: MouseEvent) => {
-      blockPopup.style.top = `${e.clientY + window.scrollY + 10}px`
-      blockPopup.style.left = `${e.clientX + 10}px`
-      blockPopup.classList.remove('hidden')
-      termPopup.classList.add('hidden')
+      setBlockPos({
+        top: e.clientY + window.scrollY + 10,
+        left: e.clientX + 10
+      })
+      setShowBlock(true)
+      setShowTerm(false)
       e.stopPropagation()
     }
     blockEl.addEventListener('click', handleBlockClick)
 
     // Hide block popup when clicking outside
     const handleDocClick = (e: MouseEvent) => {
-      if (!blockPopup.contains(e.target as Node) && e.target !== blockEl) {
-        blockPopup.classList.add('hidden')
+      const popupBlock = document.getElementById('popup-block')
+      if (popupBlock && !popupBlock.contains(e.target as Node) && e.target !== blockEl) {
+        setShowBlock(false)
       }
     }
     document.addEventListener('click', handleDocClick)
 
     return () => {
       termEl.removeEventListener('mouseenter', handleTermEnter)
-      termPopup.removeEventListener('mouseenter', handlePopupEnter)
       termEl.removeEventListener('mouseleave', handleTermLeave)
-      termPopup.removeEventListener('mouseleave', handlePopupLeave)
       blockEl.removeEventListener('click', handleBlockClick)
       document.removeEventListener('click', handleDocClick)
     }
@@ -82,8 +79,8 @@ export function SelectionPopup() {
     e.stopPropagation()
     
     // Hide menus
-    document.getElementById('popup-term')?.classList.add('hidden')
-    document.getElementById('popup-block')?.classList.add('hidden')
+    setShowTerm(false)
+    setShowBlock(false)
 
     // Position result popup
     setResultPos({
@@ -104,7 +101,7 @@ export function SelectionPopup() {
       if (data.error) throw new Error(data.error)
       setResult(data.result)
     } catch (err: any) {
-      setResult('Failed to load insight. Make sure GEMINI_API_KEY is defined.')
+      setResult('Failed to load insight. Make sure GEMINI_API_KEY is defined and working.')
     } finally {
       setIsLoading(false)
     }
@@ -113,7 +110,13 @@ export function SelectionPopup() {
   return (
     <>
       {/* 1. Single Term Selection (Neuroplasticity) */}
-      <div className="selection-popup p-1.5 flex gap-1 w-max absolute top-[30%] left-[25%] hidden bg-white shadow-xl rounded-xl border z-50" id="popup-term">
+      <div 
+        className={`selection-popup p-1.5 gap-1 w-max absolute bg-white shadow-xl rounded-xl border z-50 ${showTerm ? 'flex' : 'hidden'}`} 
+        id="popup-term"
+        style={{ top: termPos.top, left: termPos.left }}
+        onMouseEnter={() => setShowTerm(true)}
+        onMouseLeave={() => setShowTerm(false)}
+      >
         <button 
           onClick={(e) => triggerGeminiAction('neuroplasticity', 'meaning', e)}
           className="flex flex-col items-center justify-center px-3 py-2 rounded-md hover:bg-surface-container transition-colors min-w-[70px] group text-black cursor-pointer"
@@ -125,9 +128,8 @@ export function SelectionPopup() {
         <button 
           onClick={(e) => {
             e.stopPropagation()
-            // Send term to chat
             sendMessage("Explain the medical concept and clinical context of 'neuroplasticity'.")
-            document.getElementById('popup-term')?.classList.add('hidden')
+            setShowTerm(false)
           }}
           className="flex flex-col items-center justify-center px-3 py-2 rounded-md hover:bg-surface-container transition-colors min-w-[70px] group text-black cursor-pointer"
         >
@@ -137,7 +139,11 @@ export function SelectionPopup() {
       </div>
 
       {/* 2. Block Selection (Paragraph) */}
-      <div className="selection-popup w-64 flex flex-col absolute top-[40%] left-[30%] hidden bg-white shadow-xl rounded-xl border z-50 text-black" id="popup-block">
+      <div 
+        className={`selection-popup w-72 flex flex-col absolute bg-white shadow-xl rounded-xl border z-50 text-black ${showBlock ? 'flex' : 'hidden'}`} 
+        id="popup-block"
+        style={{ top: blockPos.top, left: blockPos.left }}
+      >
         <div className="px-3 py-2 border-b border-border-subtle bg-surface-container-lowest/50">
           <span className="text-[10px] font-label-md text-outline font-bold uppercase tracking-wider text-gray-400">Paragraph Actions</span>
         </div>
@@ -146,24 +152,24 @@ export function SelectionPopup() {
             onClick={(e) => triggerGeminiAction('penumbra, the region immediately surrounding the ischemic core, is particularly susceptible to therapeutic intervention during the acute and sub-acute phases of recovery. Enhanced synaptic plasticity in this region is often mediated by an upregulation of brain-derived neurotrophic factor (BDNF) and an alteration in the balance between excitatory and inhibitory neurotransmission.', 'simplify', e)}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface-container transition-colors text-left group cursor-pointer"
           >
-            <div className="w-6 h-6 rounded bg-secondary-container/50 flex items-center justify-center text-secondary group-hover:bg-secondary group-hover:text-on-secondary transition-colors">
+            <div className="w-6 h-6 rounded bg-secondary-container/50 flex items-center justify-center text-secondary group-hover:bg-secondary group-hover:text-on-secondary transition-colors flex-shrink-0">
               <span className="material-symbols-outlined text-[16px]">psychology</span>
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col flex-1 min-w-0">
               <span className="text-sm font-medium text-on-surface">Simplify</span>
-              <span className="text-[10px] text-on-surface-variant">Rewrite in plain English</span>
+              <span className="text-[10px] text-on-surface-variant break-words">Rewrite in plain English</span>
             </div>
           </button>
           <button 
             onClick={(e) => triggerGeminiAction('penumbra, the region immediately surrounding the ischemic core, is particularly susceptible to therapeutic intervention during the acute and sub-acute phases of recovery. Enhanced synaptic plasticity in this region is often mediated by an upregulation of brain-derived neurotrophic factor (BDNF) and an alteration in the balance between excitatory and inhibitory neurotransmission.', 'summarize', e)}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface-container transition-colors text-left group cursor-pointer"
           >
-            <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors">
+            <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors flex-shrink-0">
               <span className="material-symbols-outlined text-[16px]">short_text</span>
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col flex-1 min-w-0">
               <span className="text-sm font-medium text-on-surface">Summarize</span>
-              <span className="text-[10px] text-on-surface-variant">Condense to main idea</span>
+              <span className="text-[10px] text-on-surface-variant break-words">Condense to main idea</span>
             </div>
           </button>
           <div className="w-full h-px bg-border-subtle my-1"></div>
@@ -171,16 +177,16 @@ export function SelectionPopup() {
             onClick={(e) => {
               e.stopPropagation()
               sendMessage("Explain the implications of this findings in patients: 'penumbra, the region immediately surrounding the ischemic core, is particularly susceptible to therapeutic intervention during the acute and sub-acute phases of recovery. Enhanced synaptic plasticity in this region is often mediated by an upregulation of brain-derived neurotrophic factor (BDNF) and an alteration in the balance between excitatory and inhibitory neurotransmission.'")
-              document.getElementById('popup-block')?.classList.add('hidden')
+              setShowBlock(false)
             }}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface-container transition-colors text-left group cursor-pointer"
           >
-            <div className="w-6 h-6 rounded bg-primary-container flex items-center justify-center text-on-primary-container">
+            <div className="w-6 h-6 rounded bg-primary-container flex items-center justify-center text-on-primary-container flex-shrink-0">
               <span className="material-symbols-outlined text-[16px]">smart_toy</span>
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col flex-1 min-w-0">
               <span className="text-sm font-medium text-primary">Ask Docto Bot</span>
-              <span className="text-[10px] text-on-surface-variant">Open in chat pane</span>
+              <span className="text-[10px] text-on-surface-variant break-words">Open in chat pane</span>
             </div>
           </button>
         </div>

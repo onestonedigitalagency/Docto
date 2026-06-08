@@ -6,9 +6,16 @@ import { usePlannerStore, PlannerTask } from '@/stores/planner-store'
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+function formatLocalDate(date: Date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export default function PlannerPage() {
   const { tasks, isLoading, fetchTasks, addTask, toggleTask, deleteTask } = usePlannerStore()
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1)) // Defaults to June 2026 to match current time
+  const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 9)) // Set to June 9th 2026 (Today)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedDateStr, setSelectedDateStr] = useState('')
 
@@ -62,8 +69,8 @@ export default function PlannerPage() {
 
   const handleOpenAddModal = (dateObj: Date | null) => {
     const dateStr = dateObj
-      ? dateObj.toISOString().split('T')[0]
-      : new Date().toISOString().split('T')[0]
+      ? formatLocalDate(dateObj)
+      : formatLocalDate(new Date())
     setSelectedDateStr(dateStr)
     setNewTitle('')
     setNewDescription('')
@@ -118,7 +125,7 @@ export default function PlannerPage() {
         actions={
           <>
             <button
-              onClick={() => setCurrentDate(new Date(2026, 5, 9))} // Today is June 9th 2026
+              onClick={() => setCurrentDate(new Date())}
               style={{
                 padding: '7px 14px',
                 borderRadius: 8,
@@ -288,8 +295,8 @@ export default function PlannerPage() {
                   )
                 }
 
-                const dateStr = dateObj.toISOString().split('T')[0]
-                const dayTasks = tasks.filter((t) => t.due_date === dateStr)
+                const dateStr = formatLocalDate(dateObj)
+                const dayTasks = tasks.filter((t) => t.due_date && t.due_date.startsWith(dateStr))
                 const todayFlag = isToday(dateObj)
 
                 return (
