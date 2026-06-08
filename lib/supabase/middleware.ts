@@ -34,6 +34,13 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Redirect requests to deprecated /doctor/dashboard to /doctor/planner
+  if (request.nextUrl.pathname === '/doctor/dashboard') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/doctor/planner'
+    return NextResponse.redirect(url)
+  }
+
   // Protect doctor and patient routes
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/register')
@@ -51,7 +58,19 @@ export async function updateSession(request: NextRequest) {
   // Redirect authenticated users away from auth pages
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone()
-    url.pathname = '/doctor/dashboard'
+    
+    // Check if user has a doctor profile
+    const { data: doctorProfile } = await supabase
+      .from('doctor_profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (doctorProfile) {
+      url.pathname = '/doctor/planner'
+    } else {
+      url.pathname = '/patient/dashboard'
+    }
     return NextResponse.redirect(url)
   }
 
