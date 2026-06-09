@@ -118,7 +118,7 @@ export default function PatientRegisterPage() {
             className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
           />
         </div>
-        
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-on-surface mb-1.5">Date of Birth</label>
@@ -159,7 +159,7 @@ export default function PatientRegisterPage() {
             className="w-full px-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-on-surface mb-1.5">Password</label>
           <input

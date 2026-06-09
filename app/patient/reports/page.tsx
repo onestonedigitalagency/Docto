@@ -158,11 +158,10 @@ export default function PatientReportsPage() {
       {/* Upload Zone */}
       <div
         onClick={() => !isUploading && fileInputRef.current?.click()}
-        className={`relative overflow-hidden rounded-2xl border-2 border-dashed p-8 md:p-12 text-center cursor-pointer transition-all duration-300 ${
-          isUploading
+        className={`relative overflow-hidden rounded-2xl border-2 border-dashed p-8 md:p-12 text-center cursor-pointer transition-all duration-300 ${isUploading
             ? 'border-blue-300 bg-blue-50/50'
             : 'border-gray-200 bg-white hover:border-[#0050cb]/40 hover:bg-blue-50/30'
-        }`}
+          }`}
       >
         <input
           ref={fileInputRef}
@@ -201,7 +200,7 @@ export default function PatientReportsPage() {
         <div>
           <h3 className="text-sm font-semibold text-gray-900">AI-Powered Report Analysis</h3>
           <p className="text-xs text-gray-600 leading-relaxed mt-1">
-            Our AI reads your blood work, identifies flagged values, and explains what they mean in simple language. 
+            Our AI reads your blood work, identifies flagged values, and explains what they mean in simple language.
             Always consult your doctor for medical decisions.
           </p>
         </div>
