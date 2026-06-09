@@ -50,21 +50,29 @@ export default function PatientRegisterPage() {
         return
       }
 
-      // 2. Insert patient profile
-      const { error: profileError } = await supabase.from('patient_profiles').insert({
-        user_id: user.id,
-        full_name: formData.fullName,
-        date_of_birth: formData.dateOfBirth || null,
-        gender: formData.gender,
-        blood_group: '',
-        emergency_contact: {},
-        address: {},
-        medical_history: {},
-        preferred_lang: 'en',
+      // 2. Insert patient profile via API route
+      const profileRes = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: 'patient_profiles',
+          data: {
+            user_id: user.id,
+            full_name: formData.fullName,
+            date_of_birth: formData.dateOfBirth || null,
+            gender: formData.gender,
+            blood_group: '',
+            emergency_contact: {},
+            address: {},
+            medical_history: {},
+            preferred_lang: 'en',
+          }
+        })
       })
 
-      if (profileError) {
-        setError(profileError.message)
+      const profileData = await profileRes.json()
+      if (!profileRes.ok || profileData.error) {
+        setError(profileData.error || 'Failed to create patient profile')
         setIsLoading(false)
         return
       }
