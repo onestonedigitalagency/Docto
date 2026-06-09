@@ -26,6 +26,44 @@ export function TopBar({
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    let channel: any;
+
+    const fetchUserAndNotifications = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Fetch Name
+      if (userRole === 'doctor') {
+        const { data }: { data: any } = await supabase.from('doctor_profiles').select('full_name').eq('user_id', user.id).maybeSingle()
+        if (data) setUserName(`Dr. ${data.full_name}`)
+      } else {
+        const { data }: { data: any } = await supabase.from('patient_profiles').select('full_name').eq('user_id', user.id).maybeSingle()
+        if (data) setUserName(data.full_name)
+      }
+
+      // Fetch Notifications
+      const { data: notifs } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10)
+      
+      setNotifications(notifs || [])
+
+      // Subscribe to realtime notifications
+      channel = supabase
+        .channel(`notifications-${user.id}-${Date.now()}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+          (payload) => {
+            setNotifications((prev) => [payload.new, ...prev])
+          }
+        )
+        .subscribe()
+    }
+
     fetchUserAndNotifications()
 
     // Close dropdown on outside click
@@ -35,48 +73,12 @@ export function TopBar({
       }
     }
     document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
-
-  const fetchUserAndNotifications = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    // Fetch Name
-    if (userRole === 'doctor') {
-      const { data }: { data: any } = await supabase.from('doctor_profiles').select('full_name').eq('user_id', user.id).maybeSingle()
-      if (data) setUserName(`Dr. ${data.full_name}`)
-    } else {
-      const { data }: { data: any } = await supabase.from('patient_profiles').select('full_name').eq('user_id', user.id).maybeSingle()
-      if (data) setUserName(data.full_name)
-    }
-
-    // Fetch Notifications
-    const { data: notifs } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(10)
     
-    setNotifications(notifs || [])
-
-    // Subscribe to realtime notifications
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          setNotifications((prev) => [payload.new, ...prev])
-        }
-      )
-      .subscribe()
-
     return () => {
-      supabase.removeChannel(channel)
+      document.removeEventListener("mousedown", handleClickOutside)
+      if (channel) supabase.removeChannel(channel)
     }
-  }
+  }, [userRole])
 
   const markAsRead = async (id: string) => {
     await (supabase as any).from('notifications').update({ is_read: true }).eq('id', id)

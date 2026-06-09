@@ -67,22 +67,30 @@ export default function DoctorRegisterPage() {
         return
       }
 
-      // 2. Insert doctor profile using user id
-      const { error: profileError } = await supabase.from('doctor_profiles').insert({
-        user_id: user.id,
-        full_name: formData.fullName,
-        specialization: formData.specialization,
-        license_number: formData.licenseNumber,
-        experience_years: formData.experienceYears ? parseInt(formData.experienceYears, 10) : null,
-        clinic_name: formData.clinicName,
-        consultation_fee: formData.consultationFee ? parseFloat(formData.consultationFee) : null,
-        teleconsultation: formData.teleconsultation,
-        clinic_visit: formData.clinicVisit,
-        qualifications: [],
+      // 2. Insert doctor profile via API route
+      const profileRes = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: 'doctor_profiles',
+          data: {
+            user_id: user.id,
+            full_name: formData.fullName,
+            specialization: formData.specialization,
+            license_number: formData.licenseNumber,
+            experience_years: formData.experienceYears ? parseInt(formData.experienceYears, 10) : null,
+            clinic_name: formData.clinicName,
+            consultation_fee: formData.consultationFee ? parseFloat(formData.consultationFee) : null,
+            teleconsultation: formData.teleconsultation,
+            clinic_visit: formData.clinicVisit,
+            qualifications: [],
+          }
+        })
       })
 
-      if (profileError) {
-        setError(profileError.message)
+      const profileData = await profileRes.json()
+      if (!profileRes.ok || profileData.error) {
+        setError(profileData.error || 'Failed to create doctor profile')
         setIsLoading(false)
         return
       }
