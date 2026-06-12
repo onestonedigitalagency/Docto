@@ -98,7 +98,7 @@ export default function DoctorDiscoveryPage() {
   return (
     <div className="space-y-8 pb-20 animate-fade-in">
       {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0050cb] via-[#0066ff] to-[#3d8bfd] p-8 md:p-12 text-white">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0050cb] via-[#0066ff] to-[#3d8bfd] p-6 md:p-12 text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(255,255,255,0.15),transparent_60%)]" />
         <div className="absolute -bottom-20 -right-20 w-64 h-64 rounded-full bg-white/5 blur-xl" />
         <div className="relative z-10">
@@ -147,7 +147,7 @@ export default function DoctorDiscoveryPage() {
         </div>
 
         {/* Consultation Type Toggle */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
           {[
             { key: 'all', label: 'All Types', icon: Filter },
             { key: 'online', label: 'Video Consult', icon: Video },

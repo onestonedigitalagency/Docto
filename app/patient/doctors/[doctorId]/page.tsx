@@ -209,43 +209,42 @@ export default function DoctorProfilePage() {
 
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
-      {/* Back Button */}
-      <button
-        onClick={() => step === 'profile' ? router.push('/patient/doctors') : setStep('profile')}
-        className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        {step === 'profile' ? 'Back to Doctors' : 'Back to Profile'}
-      </button>
+      {/* iOS-Style Navigation Header */}
+      <div className="flex items-center justify-between py-2 mb-2">
+        <button
+          onClick={() => step === 'profile' ? router.push('/patient/doctors') : setStep('profile')}
+          className="flex items-center gap-1.5 text-[15px] text-[#0050cb] font-medium transition-opacity active:opacity-70"
+        >
+          <ChevronLeft className="h-5 w-5 -ml-1.5" />
+          {step === 'profile' ? 'Doctors' : 'Profile'}
+        </button>
 
-      {/* Step Indicator */}
-      {step !== 'profile' && (
-        <div className="flex items-center gap-3">
-          {['slot', 'triage', 'confirm'].map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                step === s
-                  ? 'bg-[#0050cb] text-white shadow-md shadow-blue-500/30'
-                  : i < ['slot', 'triage', 'confirm'].indexOf(step)
-                    ? 'bg-emerald-100 text-emerald-600'
-                    : 'bg-gray-100 text-gray-400'
-              }`}>
-                {i + 1}
+        {/* Step Indicator */}
+        {step !== 'profile' && (
+          <div className="flex items-center gap-1.5 md:gap-3 bg-gray-50/80 px-3 py-1.5 rounded-full border border-gray-100">
+            {['slot', 'triage', 'confirm'].map((s, i) => (
+              <div key={s} className="flex items-center gap-1.5 md:gap-2">
+                <div className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center text-[11px] md:text-xs font-bold transition-all ${
+                  step === s
+                    ? 'bg-[#0050cb] text-white shadow-sm'
+                    : i < ['slot', 'triage', 'confirm'].indexOf(step)
+                      ? 'bg-emerald-100 text-emerald-600'
+                      : 'bg-gray-100 text-gray-400'
+                }`}>
+                  {i + 1}
+                </div>
+                {i < 2 && <div className={`w-4 md:w-8 h-0.5 rounded ${
+                  i < ['slot', 'triage', 'confirm'].indexOf(step) ? 'bg-emerald-200' : 'bg-gray-200'
+                }`} />}
               </div>
-              {i < 2 && <div className={`w-12 h-0.5 rounded ${
-                i < ['slot', 'triage', 'confirm'].indexOf(step) ? 'bg-emerald-200' : 'bg-gray-100'
-              }`} />}
-            </div>
-          ))}
-          <span className="text-xs text-gray-400 ml-2">
-            {step === 'slot' ? 'Select Slot' : step === 'triage' ? 'Pre-Consultation' : 'Confirm'}
-          </span>
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Doctor Profile Card (always visible) */}
-        <div className="lg:col-span-1">
+        {/* Left: Doctor Profile Card (always visible on desktop, hidden on mobile if booking) */}
+        <div className={`lg:col-span-1 ${step !== 'profile' ? 'hidden lg:block' : 'block'}`}>
           <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm sticky top-6">
             {/* Avatar */}
             <div className="flex flex-col items-center text-center mb-6">
@@ -348,7 +347,25 @@ export default function DoctorProfilePage() {
         </div>
 
         {/* Right: Booking Flow */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 flex flex-col gap-6">
+          
+          {/* Compact Doctor Header for Mobile (only visible when step !== 'profile') */}
+          {step !== 'profile' && (
+            <div className="lg:hidden flex items-center gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm sticky top-4 z-10 animate-fade-in">
+              {doctor.profile_image_url ? (
+                <img src={doctor.profile_image_url} alt={doctor.full_name} className="w-12 h-12 rounded-xl object-cover border border-gray-100" />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0050cb] to-[#3d8bfd] flex items-center justify-center text-white font-bold text-sm">
+                  {getInitials(doctor.full_name)}
+                </div>
+              )}
+              <div>
+                <h3 className="font-bold text-gray-900 text-[15px]">Dr. {doctor.full_name}</h3>
+                <p className="text-xs text-gray-500">{doctor.specialization || 'General Physician'}</p>
+              </div>
+            </div>
+          )}
+
           {step === 'profile' && (
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
               <h3 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'var(--font-headline)' }}>
@@ -437,12 +454,12 @@ export default function DoctorProfilePage() {
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-7 gap-2">
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2 md:grid md:grid-cols-7 md:mx-0 md:px-0">
                   {weekDays.map((day) => (
                     <button
                       key={day.toISOString()}
                       onClick={() => setSelectedDate(day)}
-                      className={`flex flex-col items-center py-3 px-1 rounded-xl transition-all ${
+                      className={`min-w-[64px] md:min-w-0 flex flex-col items-center py-3 px-1 rounded-xl transition-all ${
                         isSameDay(day, selectedDate)
                           ? 'bg-[#0050cb] text-white shadow-md shadow-blue-500/30'
                           : isToday(day)
@@ -517,7 +534,7 @@ export default function DoctorProfilePage() {
                       value={triageResponses.chiefComplaint}
                       onChange={(e) => setTriageResponses(prev => ({ ...prev, chiefComplaint: e.target.value }))}
                       placeholder="Describe your main concern or symptoms..."
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0050cb]/20 focus:border-[#0050cb]/40 transition-all resize-none"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-[16px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0050cb]/20 focus:border-[#0050cb]/40 transition-all resize-none"
                     />
                   </div>
 
@@ -530,7 +547,7 @@ export default function DoctorProfilePage() {
                       value={triageResponses.duration}
                       onChange={(e) => setTriageResponses(prev => ({ ...prev, duration: e.target.value }))}
                       placeholder="e.g., 3 days, 2 weeks, 1 month"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0050cb]/20 focus:border-[#0050cb]/40 transition-all"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-[16px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0050cb]/20 focus:border-[#0050cb]/40 transition-all"
                     />
                   </div>
 
@@ -566,7 +583,7 @@ export default function DoctorProfilePage() {
                       value={triageResponses.additionalNotes}
                       onChange={(e) => setTriageResponses(prev => ({ ...prev, additionalNotes: e.target.value }))}
                       placeholder="Any allergies, current medications, or relevant history..."
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0050cb]/20 focus:border-[#0050cb]/40 transition-all resize-none"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-[16px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0050cb]/20 focus:border-[#0050cb]/40 transition-all resize-none"
                     />
                   </div>
                 </div>
