@@ -9,80 +9,109 @@ export function SelectionPopup() {
   const [isLoading, setIsLoading] = useState(false)
   const [resultPos, setResultPos] = useState({ top: 0, left: 0 })
   const [showResult, setShowResult] = useState(false)
-
-  // React states for popups
-  const [showTerm, setShowTerm] = useState(false)
-  const [termPos, setTermPos] = useState({ top: 0, left: 0 })
+  const [resultPage, setResultPage] = useState(0)
 
   const [showBlock, setShowBlock] = useState(false)
   const [blockPos, setBlockPos] = useState({ top: 0, left: 0 })
+  const [selectedText, setSelectedText] = useState('')
+
+  const loadingPhrases = [
+    "Analyzing medical literature...",
+    "Extracting clinical context...",
+    "Querying knowledge base...",
+    "Synthesizing findings...",
+    "Reviewing terminology...",
+    "Processing clinical data..."
+  ]
+  const [loadingPhrase, setLoadingPhrase] = useState(loadingPhrases[0])
 
   useEffect(() => {
-    const termEl = document.getElementById('term-neuroplasticity')
-    const blockEl = document.getElementById('block-selection-target')
+    let interval: NodeJS.Timeout;
+    if (isLoading) {
+      interval = setInterval(() => {
+        setLoadingPhrase(prev => {
+          const currentIndex = loadingPhrases.indexOf(prev)
+          return loadingPhrases[(currentIndex + 1) % loadingPhrases.length]
+        })
+      }, 1500)
+    }
+    return () => clearInterval(interval)
+  }, [isLoading])
 
-    if (!termEl || !blockEl) return
+  const isSingleWord = selectedText.trim().split(/\s+/).length === 1
 
-    // Show term popup on hover
-    const handleTermEnter = (e: MouseEvent) => {
-      const rect = termEl.getBoundingClientRect()
-      setTermPos({
-        top: rect.top - 65 + window.scrollY,
-        left: rect.left + (rect.width / 2) - 75
+  useEffect(() => {
+    const handleSelection = () => {
+      const selection = window.getSelection()
+      if (!selection || selection.isCollapsed) {
+        return
+      }
+
+      const text = selection.toString().trim()
+      if (!text) return
+
+      const range = selection.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+
+      const isSingle = text.trim().split(/\s+/).length === 1
+      const POPUP_HEIGHT = isSingle ? 220 : 250
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+
+      let topPos = 0
+      if (spaceBelow > POPUP_HEIGHT + 20) {
+        // Under the selection
+        topPos = rect.bottom + window.scrollY + 10
+      } else if (spaceAbove > POPUP_HEIGHT + 20) {
+        // Above the selection
+        topPos = rect.top + window.scrollY - POPUP_HEIGHT - 10
+      } else {
+        // Over the selection
+        topPos = rect.top + window.scrollY + (rect.height / 2) - (POPUP_HEIGHT / 2)
+      }
+
+      setBlockPos({
+        top: topPos,
+        left: Math.max(10, Math.min(window.innerWidth - 260, rect.left + rect.width / 2 - 120))
       })
-      setShowTerm(true)
+      
+      setSelectedText(text)
+      setShowBlock(true)
+    }
+
+    const handleMouseUp = (e: MouseEvent) => {
+      setTimeout(handleSelection, 10)
+    }
+
+    const handleMouseDown = (e: MouseEvent) => {
+      const popupBlock = document.getElementById('popup-block')
+      const resultBlock = document.getElementById('popup-result')
+      
+      // If clicking inside popup or result, do nothing
+      if ((popupBlock && popupBlock.contains(e.target as Node)) || 
+          (resultBlock && resultBlock.contains(e.target as Node))) {
+        return
+      }
+      
       setShowBlock(false)
     }
-    termEl.addEventListener('mouseenter', handleTermEnter)
 
-    // Hide on leave
-    const handleTermLeave = () => {
-      setTimeout(() => {
-        const popup = document.getElementById('popup-term')
-        if (popup && !popup.matches(':hover')) {
-          setShowTerm(false)
-        }
-      }, 100)
-    }
-    termEl.addEventListener('mouseleave', handleTermLeave)
-
-    // Show block popup on click
-    const handleBlockClick = (e: MouseEvent) => {
-      setBlockPos({
-        top: e.clientY + window.scrollY + 10,
-        left: e.clientX + 10
-      })
-      setShowBlock(true)
-      setShowTerm(false)
-      e.stopPropagation()
-    }
-    blockEl.addEventListener('click', handleBlockClick)
-
-    // Hide block popup when clicking outside
-    const handleDocClick = (e: MouseEvent) => {
-      const popupBlock = document.getElementById('popup-block')
-      if (popupBlock && !popupBlock.contains(e.target as Node) && e.target !== blockEl) {
-        setShowBlock(false)
-      }
-    }
-    document.addEventListener('click', handleDocClick)
+    document.addEventListener('mouseup', handleMouseUp)
+    document.addEventListener('mousedown', handleMouseDown)
 
     return () => {
-      termEl.removeEventListener('mouseenter', handleTermEnter)
-      termEl.removeEventListener('mouseleave', handleTermLeave)
-      blockEl.removeEventListener('click', handleBlockClick)
-      document.removeEventListener('click', handleDocClick)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('mousedown', handleMouseDown)
     }
   }, [])
 
   const triggerGeminiAction = async (text: string, action: string, e: React.MouseEvent) => {
     e.stopPropagation()
     
-    // Hide menus
-    setShowTerm(false)
+    // Hide menu
     setShowBlock(false)
 
-    // Position result popup
+    // Position result popup near the click
     setResultPos({
       top: e.clientY + window.scrollY + 15,
       left: Math.max(10, e.clientX - 150)
@@ -90,6 +119,7 @@ export function SelectionPopup() {
     setShowResult(true)
     setIsLoading(true)
     setResult('')
+    setResultPage(0)
 
     try {
       const response = await fetch('/api/research/define', {
@@ -109,86 +139,129 @@ export function SelectionPopup() {
 
   return (
     <>
-      {/* 1. Single Term Selection (Neuroplasticity) */}
+      {/* Dynamic Selection Popup */}
       <div 
-        className={`selection-popup p-1.5 gap-1 w-max absolute bg-white shadow-xl rounded-xl border z-50 ${showTerm ? 'flex' : 'hidden'}`} 
-        id="popup-term"
-        style={{ top: termPos.top, left: termPos.left }}
-        onMouseEnter={() => setShowTerm(true)}
-        onMouseLeave={() => setShowTerm(false)}
-      >
-        <button 
-          onClick={(e) => triggerGeminiAction('neuroplasticity', 'meaning', e)}
-          className="flex flex-col items-center justify-center px-3 py-2 rounded-md hover:bg-surface-container transition-colors min-w-[70px] group text-black cursor-pointer"
-        >
-          <span className="material-symbols-outlined text-[20px] text-primary mb-1 group-hover:scale-110 transition-transform">menu_book</span>
-          <span className="text-[10px] font-medium text-on-surface">Meaning</span>
-        </button>
-        <div className="w-px bg-border-subtle my-2"></div>
-        <button 
-          onClick={(e) => {
-            e.stopPropagation()
-            sendMessage("Explain the medical concept and clinical context of 'neuroplasticity'.")
-            setShowTerm(false)
-          }}
-          className="flex flex-col items-center justify-center px-3 py-2 rounded-md hover:bg-surface-container transition-colors min-w-[70px] group text-black cursor-pointer"
-        >
-          <span className="material-symbols-outlined text-[20px] text-on-surface-variant mb-1 group-hover:scale-110 transition-transform">smart_toy</span>
-          <span className="text-[10px] font-medium text-on-surface">Ask Bot</span>
-        </button>
-      </div>
-
-      {/* 2. Block Selection (Paragraph) */}
-      <div 
-        className={`selection-popup w-72 flex flex-col absolute bg-white shadow-xl rounded-xl border z-50 text-black ${showBlock ? 'flex' : 'hidden'}`} 
+        className={`selection-popup w-64 flex flex-col absolute bg-white shadow-xl rounded-xl border border-gray-200 z-50 text-black transition-opacity duration-200 ${showBlock ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none hidden'}`} 
         id="popup-block"
         style={{ top: blockPos.top, left: blockPos.left }}
       >
-        <div className="px-3 py-2 border-b border-border-subtle bg-surface-container-lowest/50">
-          <span className="text-[10px] font-label-md text-outline font-bold uppercase tracking-wider text-gray-400">Paragraph Actions</span>
+        <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/50 rounded-t-xl flex justify-between items-center">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Selection Actions</span>
+          {selectedText.length > 50 && <span className="text-[10px] text-gray-400 truncate w-24">"{selectedText.substring(0, 20)}..."</span>}
         </div>
         <div className="p-1 flex flex-col">
-          <button 
-            onClick={(e) => triggerGeminiAction('penumbra, the region immediately surrounding the ischemic core, is particularly susceptible to therapeutic intervention during the acute and sub-acute phases of recovery. Enhanced synaptic plasticity in this region is often mediated by an upregulation of brain-derived neurotrophic factor (BDNF) and an alteration in the balance between excitatory and inhibitory neurotransmission.', 'simplify', e)}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface-container transition-colors text-left group cursor-pointer"
-          >
-            <div className="w-6 h-6 rounded bg-secondary-container/50 flex items-center justify-center text-secondary group-hover:bg-secondary group-hover:text-on-secondary transition-colors flex-shrink-0">
-              <span className="material-symbols-outlined text-[16px]">psychology</span>
-            </div>
-            <div className="flex flex-col flex-1 min-w-0">
-              <span className="text-sm font-medium text-on-surface">Simplify</span>
-              <span className="text-[10px] text-on-surface-variant break-words">Rewrite in plain English</span>
-            </div>
-          </button>
-          <button 
-            onClick={(e) => triggerGeminiAction('penumbra, the region immediately surrounding the ischemic core, is particularly susceptible to therapeutic intervention during the acute and sub-acute phases of recovery. Enhanced synaptic plasticity in this region is often mediated by an upregulation of brain-derived neurotrophic factor (BDNF) and an alteration in the balance between excitatory and inhibitory neurotransmission.', 'summarize', e)}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface-container transition-colors text-left group cursor-pointer"
-          >
-            <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors flex-shrink-0">
-              <span className="material-symbols-outlined text-[16px]">short_text</span>
-            </div>
-            <div className="flex flex-col flex-1 min-w-0">
-              <span className="text-sm font-medium text-on-surface">Summarize</span>
-              <span className="text-[10px] text-on-surface-variant break-words">Condense to main idea</span>
-            </div>
-          </button>
-          <div className="w-full h-px bg-border-subtle my-1"></div>
-          <button 
-            onClick={(e) => {
-              e.stopPropagation()
-              sendMessage("Explain the implications of this findings in patients: 'penumbra, the region immediately surrounding the ischemic core, is particularly susceptible to therapeutic intervention during the acute and sub-acute phases of recovery. Enhanced synaptic plasticity in this region is often mediated by an upregulation of brain-derived neurotrophic factor (BDNF) and an alteration in the balance between excitatory and inhibitory neurotransmission.'")
-              setShowBlock(false)
-            }}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface-container transition-colors text-left group cursor-pointer"
-          >
-            <div className="w-6 h-6 rounded bg-primary-container flex items-center justify-center text-on-primary-container flex-shrink-0">
-              <span className="material-symbols-outlined text-[16px]">smart_toy</span>
-            </div>
-            <div className="flex flex-col flex-1 min-w-0">
-              <span className="text-sm font-medium text-primary">Ask Docto Bot</span>
-              <span className="text-[10px] text-on-surface-variant break-words">Open in chat pane</span>
-            </div>
-          </button>
+          {isSingleWord ? (
+            <>
+              <button 
+                onClick={(e) => triggerGeminiAction(selectedText, 'meaning', e)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-left group cursor-pointer"
+              >
+                <div className="w-6 h-6 rounded bg-blue-100 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors flex-shrink-0">
+                  <span className="material-symbols-outlined text-[16px]">menu_book</span>
+                </div>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="text-sm font-medium text-gray-900">Meaning or Definition</span>
+                </div>
+              </button>
+              <button 
+                onClick={(e) => triggerGeminiAction(selectedText, 'meaning_context', e)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-left group cursor-pointer"
+              >
+                <div className="w-6 h-6 rounded bg-indigo-100 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-shrink-0">
+                  <span className="material-symbols-outlined text-[16px]">manage_search</span>
+                </div>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="text-sm font-medium text-gray-900">Meaning in this context</span>
+                </div>
+              </button>
+              <button 
+                onClick={(e) => triggerGeminiAction(selectedText, 'root', e)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-left group cursor-pointer"
+              >
+                <div className="w-6 h-6 rounded bg-emerald-100 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors flex-shrink-0">
+                  <span className="material-symbols-outlined text-[16px]">account_tree</span>
+                </div>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="text-sm font-medium text-gray-900">Root / Etymology</span>
+                </div>
+              </button>
+              <button 
+                onClick={(e) => triggerGeminiAction(selectedText, 'pronounce', e)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-left group cursor-pointer"
+              >
+                <div className="w-6 h-6 rounded bg-amber-100 flex items-center justify-center text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors flex-shrink-0">
+                  <span className="material-symbols-outlined text-[16px]">record_voice_over</span>
+                </div>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="text-sm font-medium text-gray-900">Pronounce</span>
+                </div>
+              </button>
+            </>
+          ) : (
+            <>
+              <button 
+                onClick={(e) => triggerGeminiAction(selectedText, 'summarize', e)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-left group cursor-pointer"
+              >
+                <div className="w-6 h-6 rounded bg-green-100 flex items-center justify-center text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors flex-shrink-0">
+                  <span className="material-symbols-outlined text-[16px]">short_text</span>
+                </div>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="text-sm font-medium text-gray-900">Summarise</span>
+                </div>
+              </button>
+              <button 
+                onClick={(e) => triggerGeminiAction(selectedText, 'function', e)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-left group cursor-pointer"
+              >
+                <div className="w-6 h-6 rounded bg-blue-100 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors flex-shrink-0">
+                  <span className="material-symbols-outlined text-[16px]">integration_instructions</span>
+                </div>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="text-sm font-medium text-gray-900">Function of lines</span>
+                  <span className="text-[10px] text-gray-500 break-words">Role in paragraph/page</span>
+                </div>
+              </button>
+              <button 
+                onClick={(e) => triggerGeminiAction(selectedText, 'simplify', e)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-left group cursor-pointer"
+              >
+                <div className="w-6 h-6 rounded bg-orange-100 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors flex-shrink-0">
+                  <span className="material-symbols-outlined text-[16px]">psychology</span>
+                </div>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="text-sm font-medium text-gray-900">Simplify the whole thing</span>
+                </div>
+              </button>
+              <button 
+                onClick={(e) => triggerGeminiAction(selectedText, 'takeaways', e)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-left group cursor-pointer"
+              >
+                <div className="w-6 h-6 rounded bg-teal-100 flex items-center justify-center text-teal-600 group-hover:bg-teal-600 group-hover:text-white transition-colors flex-shrink-0">
+                  <span className="material-symbols-outlined text-[16px]">format_list_bulleted</span>
+                </div>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="text-sm font-medium text-gray-900">Key takeaway in bullet points</span>
+                </div>
+              </button>
+              <div className="w-full h-px bg-gray-100 my-1"></div>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation()
+                  sendMessage(`Explain the following text:\n\n"${selectedText}"`)
+                  setShowBlock(false)
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-left group cursor-pointer"
+              >
+                <div className="w-6 h-6 rounded bg-purple-100 flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white flex-shrink-0 transition-colors">
+                  <span className="material-symbols-outlined text-[16px]">smart_toy</span>
+                </div>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="text-sm font-medium text-purple-600 group-hover:text-purple-700">Ask Docto</span>
+                </div>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -226,10 +299,38 @@ export function SelectionPopup() {
             {isLoading ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                <span>Consulting Gemini...</span>
+                <span>{loadingPhrase}</span>
               </div>
             ) : (
-              <p style={{ whiteSpace: 'pre-wrap' }}>{result}</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <p style={{ whiteSpace: 'pre-wrap' }}>
+                  {result.split(/(?:\r?\n){2,}/).filter(p => p.trim().length > 0)[resultPage] || result}
+                </p>
+                
+                {result.split(/(?:\r?\n){2,}/).filter(p => p.trim().length > 0).length > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, borderTop: '1px solid #E5E5EA', paddingTop: 8 }}>
+                    <span style={{ fontSize: 11, color: '#8E8E93' }}>
+                      Page {resultPage + 1} of {result.split(/(?:\r?\n){2,}/).filter(p => p.trim().length > 0).length}
+                    </span>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button 
+                        onClick={() => setResultPage(prev => Math.max(0, prev - 1))}
+                        disabled={resultPage === 0}
+                        style={{ background: 'none', border: 'none', cursor: resultPage === 0 ? 'default' : 'pointer', color: resultPage === 0 ? '#C7C7CC' : '#007AFF', padding: 2 }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                      </button>
+                      <button 
+                        onClick={() => setResultPage(prev => Math.min(result.split(/(?:\r?\n){2,}/).filter(p => p.trim().length > 0).length - 1, prev + 1))}
+                        disabled={resultPage === result.split(/(?:\r?\n){2,}/).filter(p => p.trim().length > 0).length - 1}
+                        style={{ background: 'none', border: 'none', cursor: resultPage === result.split(/(?:\r?\n){2,}/).filter(p => p.trim().length > 0).length - 1 ? 'default' : 'pointer', color: resultPage === result.split(/(?:\r?\n){2,}/).filter(p => p.trim().length > 0).length - 1 ? '#C7C7CC' : '#007AFF', padding: 2 }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

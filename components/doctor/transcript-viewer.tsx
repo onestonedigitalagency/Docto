@@ -11,6 +11,7 @@ export function TranscriptViewer() {
   const { 
     isRecording, 
     transcript, 
+    summary,
     seedDemoTranscript, 
     isExtracting, 
     setIsExtracting, 
@@ -53,12 +54,14 @@ export function TranscriptViewer() {
   }
 
   return (
-    <Card className="flex h-[500px] flex-col elevation-1">
-      <CardHeader className="border-b border-outline-variant bg-surface pb-4">
+    <Card className="flex h-[400px] flex-col rounded-[14px] overflow-hidden bg-white border-black/5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+      <CardHeader className="bg-white border-b border-black/5 pb-4 pt-5 px-6">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquareText className="h-5 w-5 text-primary" />
-            Live Transcript
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-tight text-[#1D1D1F]">
+            <div className="p-1 rounded-md bg-blue-50 text-[#0050cb]">
+              <Sparkles className="h-3.5 w-3.5" />
+            </div>
+            Clinical Summary
           </CardTitle>
           <div className="flex items-center gap-3">
             {transcript.length > 0 && !isRecording && (
@@ -79,40 +82,30 @@ export function TranscriptViewer() {
         </div>
       </CardHeader>
       <CardContent className="flex-1 overflow-y-auto p-0" ref={scrollRef}>
-        <div className="flex flex-col gap-4 p-6">
-          {transcript.length === 0 && !isRecording && (
-            <div className="text-center text-on-surface-variant text-sm mt-10 flex flex-col items-center gap-4">
-              <span>Start recording to see live transcription here, or use a demo transcript.</span>
-              <Button variant="outline" size="sm" onClick={seedDemoTranscript}>
-                Seed Demo Transcript
+        <div className="flex flex-col gap-4 p-6 h-full bg-white">
+          {summary ? (
+            <div className="prose max-w-none text-[15px] text-[#3C3C43]">
+              <p className="whitespace-pre-wrap leading-relaxed">{summary}</p>
+            </div>
+          ) : isRecording ? (
+            <div className="flex flex-col items-center justify-center text-[#8E8E93] h-full gap-4 opacity-80">
+               <div className="flex gap-1.5 items-center">
+                 <span className="h-2 w-2 bg-[#0050cb] rounded-full animate-bounce"></span>
+                 <span className="h-2 w-2 bg-[#0050cb] rounded-full animate-bounce delay-75"></span>
+                 <span className="h-2 w-2 bg-[#0050cb] rounded-full animate-bounce delay-150"></span>
+               </div>
+               <p className="text-sm font-medium">Recording session... Summary will be generated after extraction.</p>
+            </div>
+          ) : transcript.length > 0 ? (
+            <div className="flex flex-col items-center justify-center text-[#8E8E93] h-full opacity-80">
+              <p className="text-sm font-medium">Session recorded. Click 'Extract AI Insights' to generate summary.</p>
+            </div>
+          ) : (
+            <div className="text-center text-[#8E8E93] text-sm h-full flex flex-col items-center justify-center gap-4">
+              <span className="font-medium">Start recording to generate a clinical summary, or use a demo transcript.</span>
+              <Button variant="outline" size="sm" onClick={seedDemoTranscript} className="text-[#0050cb] border-[#0050cb]/20 hover:bg-[#0050cb]/10">
+                Seed Demo Session
               </Button>
-            </div>
-          )}
-
-          {transcript.map((entry) => (
-            <div 
-              key={entry.id} 
-              className={`flex flex-col gap-1 max-w-[85%] ${entry.speaker === "Doctor" ? "self-end" : "self-start"}`}
-            >
-              <div className={`flex items-center gap-2 text-xs text-on-surface-variant ${entry.speaker === "Doctor" ? "flex-row-reverse" : "flex-row"}`}>
-                <span className="font-semibold">{entry.speaker}</span>
-                <span>{entry.time}</span>
-              </div>
-              <div className={`rounded-2xl px-4 py-3 text-sm shadow-sm ${
-                entry.speaker === "Doctor" 
-                  ? "bg-primary text-on-primary rounded-tr-sm" 
-                  : "bg-surface-container text-on-surface rounded-tl-sm"
-              }`}>
-                {entry.text}
-              </div>
-            </div>
-          ))}
-
-          {isRecording && (
-            <div className="self-start text-on-surface-variant animate-pulse flex gap-1 items-center mt-2">
-              <span className="h-2 w-2 bg-on-surface-variant rounded-full animate-bounce"></span>
-              <span className="h-2 w-2 bg-on-surface-variant rounded-full animate-bounce delay-75"></span>
-              <span className="h-2 w-2 bg-on-surface-variant rounded-full animate-bounce delay-150"></span>
             </div>
           )}
         </div>

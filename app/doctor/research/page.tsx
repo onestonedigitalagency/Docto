@@ -14,12 +14,10 @@ export default function ResearchHubPage() {
   
   // Document state
   const [title, setTitle] = useState("Cortical Remapping Following Ischemic Events")
-  const [summary, setSummary] = useState("")
   const [content, setContent] = useState("")
+  const [insightsHtml, setInsightsHtml] = useState<string | null>(null)
   const [keyTakeaways, setKeyTakeaways] = useState<string[]>([
-    'Penumbra region is highly responsive to therapy in sub-acute phases.',
-    'BDNF upregulation plays a crucial role in synaptic repair.',
-    'Constraint-Induced Movement Therapy shows 68% improvement rate.',
+    'Upload a document to extract key clinical takeaways.',
   ])
   const [isSaved, setIsSaved] = useState(false)
   const [doctorId, setDoctorId] = useState<string | null>(null)
@@ -64,23 +62,33 @@ export default function ResearchHubPage() {
       if (data.error) throw new Error(data.error)
 
       setTitle(data.title)
-      setSummary(data.summary)
       setKeyTakeaways(data.keyTakeaways)
+      setContent(data.rawText || "Failed to load document text. Please try again.")
       
-      // Let's generate a nice readable HTML format from the summary + key takeaways as content
       const generatedContent = `
-        <h3 class="text-lg font-semibold mb-2">Executive Summary</h3>
-        <p class="mb-4">${data.summary}</p>
-        <h3 class="text-lg font-semibold mb-2">Key Highlights</h3>
-        <ul class="list-disc pl-5 space-y-1 mb-4">
-          ${data.keyTakeaways.map((k: string) => `<li>${k}</li>`).join('')}
-        </ul>
-        <h3 class="text-lg font-semibold mb-2">Suggested Clinical Enquiries</h3>
-        <ul class="list-disc pl-5 space-y-1">
-          ${data.relatedQueries.map((q: string) => `<li>${q}</li>`).join('')}
-        </ul>
+        <div class="prose max-w-none text-[15px] text-[#3C3C43]">
+          <h2 class="text-lg font-bold text-[#1D1D1F] border-b pb-1 mb-3">Executive Summary</h2>
+          <div class="bg-blue-50/50 p-4 rounded-xl mb-6">
+            ${data.executiveSummary}
+          </div>
+
+          <h2 class="text-lg font-bold text-[#1D1D1F] border-b pb-1 mb-3 mt-6">Deep Dive & Synthesis</h2>
+          <div class="mb-6">
+            ${data.deepDive}
+          </div>
+
+          <h2 class="text-lg font-bold text-[#1D1D1F] border-b pb-1 mb-3 mt-6">Clinical Application (Vignettes)</h2>
+          <div class="bg-[#F5F5F7] p-5 rounded-xl mb-6">
+            ${data.clinicalVignettes}
+          </div>
+
+          <h2 class="text-lg font-bold text-[#1D1D1F] border-b pb-1 mb-3 mt-6">External Context & Consensus</h2>
+          <div class="mb-6">
+            ${data.externalContext}
+          </div>
+        </div>
       `
-      setContent(generatedContent)
+      setInsightsHtml(generatedContent)
     } catch (err) {
       console.error('Error analyzing research paper:', err)
       alert('Failed to analyze document. Please check your Gemini API key in env.')
@@ -99,7 +107,6 @@ export default function ResearchHubPage() {
       const { error } = await supabase.from('research_documents').insert({
         doctor_id: doctorId,
         title,
-        summary,
         insights: keyTakeaways,
         content,
         is_saved: true,
@@ -153,12 +160,12 @@ export default function ResearchHubPage() {
         }
       />
 
-      {/* Two-pane layout */}
+      {/* Three-pane layout */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: 20, gap: 16, background: '#F5F5F7' }}>
         {/* Left: Document Viewer */}
         <div
           style={{
-            flex: 2,
+            flex: 1.5,
             background: '#fff',
             borderRadius: 14,
             boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
@@ -177,73 +184,91 @@ export default function ResearchHubPage() {
           />
         </div>
 
-        {/* Right: Insights + Bot */}
-        <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 14, flexShrink: 0 }}>
-          {/* Smart Insights */}
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: 14,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-              border: '1px solid rgba(0,0,0,0.05)',
-              padding: 18,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 8,
-                  background: 'rgba(255,204,0,0.15)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF9500" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              </div>
-              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#1D1D1F', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
-                Smart Insights
-              </h3>
+        {/* Middle: Insights */}
+        <div
+          style={{
+            flex: 1.2,
+            background: '#fff',
+            borderRadius: 14,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            border: '1px solid rgba(0,0,0,0.05)',
+            padding: 18,
+            display: 'flex',
+            flexDirection: 'column',
+            flexShrink: 0,
+            overflowY: 'auto',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                background: 'rgba(255,204,0,0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF9500" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {keyTakeaways.map((insight, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 8,
-                    padding: '10px 12px',
-                    background: '#F5F5F7',
-                    borderRadius: 10,
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34C759" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><polyline points="20 6 9 17 4 12"/></svg>
-                  <span style={{ fontSize: 12, color: '#3C3C43', fontFamily: '-apple-system, sans-serif', lineHeight: 1.5 }}>
-                    {insight}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#1D1D1F', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
+              Smart Insights
+            </h3>
           </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, height: '100%' }}>
+            {isLoading ? (
+               <div className="flex flex-col items-center justify-center h-full text-[#8E8E93] gap-4">
+                 <div className="flex gap-1.5 items-center">
+                   <span className="h-2 w-2 bg-[#FF9500] rounded-full animate-bounce"></span>
+                   <span className="h-2 w-2 bg-[#FF9500] rounded-full animate-bounce delay-75"></span>
+                   <span className="h-2 w-2 bg-[#FF9500] rounded-full animate-bounce delay-150"></span>
+                 </div>
+                 <span className="text-sm font-medium">Extracting Clinical Insights...</span>
+               </div>
+            ) : insightsHtml ? (
+               <div dangerouslySetInnerHTML={{ __html: insightsHtml }} className="pb-10" />
+            ) : (
+               <div className="flex flex-col gap-2">
+                 {keyTakeaways.map((insight, i) => (
+                   <div
+                     key={i}
+                     style={{
+                       display: 'flex',
+                       alignItems: 'flex-start',
+                       gap: 8,
+                       padding: '10px 12px',
+                       background: '#F5F5F7',
+                       borderRadius: 10,
+                     }}
+                   >
+                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34C759" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><polyline points="20 6 9 17 4 12"/></svg>
+                     <span style={{ fontSize: 12, color: '#3C3C43', fontFamily: '-apple-system, sans-serif', lineHeight: 1.5 }}>
+                       {insight}
+                     </span>
+                   </div>
+                 ))}
+               </div>
+            )}
+          </div>
+        </div>
 
-          {/* Docto Bot */}
-          <div
-            style={{
-              flex: 1,
-              background: '#fff',
-              borderRadius: 14,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-              border: '1px solid rgba(0,0,0,0.05)',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            }}
-          >
-            <DoctoBotSidebar />
-          </div>
+        {/* Right: Docto Bot */}
+        <div
+          style={{
+            width: 320,
+            background: '#fff',
+            borderRadius: 14,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            border: '1px solid rgba(0,0,0,0.05)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            flexShrink: 0,
+          }}
+        >
+          <DoctoBotSidebar />
         </div>
       </div>
 

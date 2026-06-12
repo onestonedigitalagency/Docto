@@ -821,3 +821,73 @@ For each phase:
 ---
 
 > 📌 **Next Step:** Once you approve this plan and answer the open questions, I'll begin Phase 0 (dependencies, Supabase setup, design system, file structure) immediately.
+
+---
+
+## Phase 7: Agentic Planner Bot — Calendar Sidebar (Current Sprint)
+
+### Goal
+Embed the Docto Bot as a persistent, agentic right-side panel on the **Doctor Planner Calendar** page (`/doctor/planner`). The bot will create, list, reschedule, and delete tasks via natural language — with all changes instantly reflected in the calendar grid.
+
+### 7.1 — Architecture: Pseudo Tool-Calling Pattern
+
+The bot uses a **server-side function-dispatch pattern** (works across all AI providers):
+1. The AI is prompted to return both a human-readable reply AND a structured `%%ACTION%% ... %%END_ACTION%%` block.
+2. The Next.js API route parses and strips the action block.
+3. The client receives `{ message, action }` and dispatches the action to the Zustand planner store.
+4. The calendar re-renders immediately via Zustand state.
+
+**Supported Bot Actions:**
+
+| Action Type | What it Does |
+|---|---|
+| `ADD_TASK` | Creates a new task in Supabase |
+| `RESCHEDULE_DAY` | Bulk-moves all tasks from one date to another |
+| `COMPLETE_TASK` | Marks a task as done |
+| `DELETE_TASK` | Deletes a task |
+| `LIST_TASKS` | Returns tasks list (read-only, no DB write) |
+| `CLARIFY_NEEDED` | Bot asks a follow-up question before acting |
+
+### 7.2 — Files Changed
+
+| File | Change |
+|---|---|
+| `stores/planner-store.ts` | Add `rescheduleTasksByDate(from, to)` action |
+| `app/api/bot/route.ts` | Upgrade to agentic system prompt + action parsing |
+| `app/api/planner/reschedule/route.ts` | NEW — bulk reschedule server route |
+| `components/doctor/planner-bot-sidebar.tsx` | NEW — full chat sidebar component |
+| `app/doctor/planner/page.tsx` | Two-column layout: calendar (left) + bot sidebar (right) |
+
+### 7.3 — Sample Conversation Flows
+
+**Adding a Task:**
+```
+Doctor: "Add a task"
+Bot: "Sure! What's the task and when should I schedule it? 🗓️"
+Doctor: "Cardiology ward round on June 14th"
+Bot: "Done! 'Cardiology Ward Round' is on your calendar for June 14th 💪"
+→ Calendar updates instantly
+```
+
+**Shifting a Day:**
+```
+Doctor: "Give me a break today"
+Bot: "Of course! I'll push all today's tasks to tomorrow. Just confirming — move all 4 tasks from June 12 → June 13? (Yes/No)"
+Doctor: "Yes"
+Bot: "Done! 🎉 Your day is cleared. Take care of yourself!"
+→ Calendar reflects the shift immediately
+```
+
+### 7.4 — Bot Persona
+- Tone: **Supportive, energetic, warm** (not robotic)
+- Always addresses the doctor with warmth
+- Uses light emoji to add energy (🎉💪🗓️)
+- Proactively asks clarifying questions before taking destructive or bulk actions
+
+### 7.5 — Sidebar UI Design
+- Fixed 320px right panel with glassmorphism styling
+- Quick-action chips at the top: `Add Task`, `Today's Tasks`, `Give Me a Break`
+- Collapsible via a toggle button (doctor can reclaim full calendar width)
+- Animated typing indicator while waiting for AI response
+- Auto-scrolls to latest message
+

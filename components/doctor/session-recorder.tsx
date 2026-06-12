@@ -114,41 +114,43 @@ export function SessionRecorder() {
   }
 
   return (
-    <Card className="elevation-1 border-doc-surface-elevated bg-doc-surface text-doc-text">
-      <CardHeader className="pb-4">
+    <Card className="rounded-[14px] border-black/5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] bg-white">
+      <CardHeader className="pb-3 pt-5 px-6">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-white">
-            <FileAudio className="h-5 w-5 text-doc-accent-cyan" />
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-tight text-[#1D1D1F]">
+            <div className="p-1 rounded-md bg-blue-50 text-[#0050cb]">
+              <FileAudio className="h-3.5 w-3.5" />
+            </div>
             Session Audio
           </CardTitle>
           <div className="flex items-center gap-2">
             {isRecording && (
-              <span className="flex h-3 w-3 rounded-full bg-doc-accent-red animate-pulse"></span>
+              <span className="flex h-2 w-2 rounded-full bg-[#FF3B30] animate-pulse"></span>
             )}
-            <span className="font-mono text-lg font-bold text-doc-text-secondary">
+            <span className="font-mono text-sm font-semibold tracking-wide text-[#3C3C43]">
               {formatTime(timer)}
             </span>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-doc-surface-overlay bg-doc-surface-elevated p-8 text-center">
+      <CardContent className="px-6 pb-6">
+        <div className="flex flex-col items-center justify-center rounded-xl bg-[#F5F5F7] p-6 text-center">
           <Button
             size="icon"
-            className={`h-20 w-20 rounded-full transition-all ${
+            className={`h-16 w-16 rounded-full transition-colors shadow-sm ${
               isRecording 
-                ? "bg-doc-accent-red hover:bg-doc-accent-red/90 animate-pulse-recording" 
-                : "bg-doc-primary hover:bg-doc-primary-light"
+                ? "bg-[#FF3B30] hover:bg-[#D70015] animate-pulse" 
+                : "bg-[#0050cb] hover:bg-[#0040a8]"
             }`}
             onClick={toggleRecording}
           >
             {isRecording ? (
-              <Square className="h-8 w-8 text-white fill-white" />
+              <Square className="h-6 w-6 text-white fill-white" />
             ) : (
-              <Mic className="h-8 w-8 text-white" />
+               <Mic className="h-6 w-6 text-white" />
             )}
           </Button>
-          <p className="mt-4 text-sm text-doc-text-secondary">
+          <p className="mt-4 text-xs font-medium text-[#3C3C43]">
             {isRecording 
               ? "Recording in progress... Docto is listening." 
               : "Tap to start recording the clinical session"}

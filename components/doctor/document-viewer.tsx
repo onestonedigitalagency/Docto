@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, ReactNode } from 'react'
+import { useState, useEffect, ReactNode } from 'react'
 
 function ToolbarButton({ icon, label, onClick }: { icon: ReactNode; label: string; onClick?: () => void }) {
   return (
@@ -53,6 +53,27 @@ export function DocumentViewer({
 }: DocumentViewerProps) {
   const [zoom, setZoom] = useState(100)
 
+  const loadingPhrases = [
+    "Analyzing medical document...",
+    "Extracting clinical data...",
+    "Synthesizing literature...",
+    "Identifying key findings..."
+  ]
+  const [loadingPhrase, setLoadingPhrase] = useState(loadingPhrases[0])
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    if (isLoading) {
+      interval = setInterval(() => {
+        setLoadingPhrase(prev => {
+          const idx = loadingPhrases.indexOf(prev)
+          return loadingPhrases[(idx + 1) % loadingPhrases.length]
+        })
+      }, 2500)
+    }
+    return () => clearInterval(interval)
+  }, [isLoading])
+
   // Default content if none provided
   const defaultContent = `
     <p>
@@ -66,7 +87,50 @@ export function DocumentViewer({
     </p>
   `
 
-  const renderContent = content || defaultContent
+  // Cleanup raw PDF text to fix broken lines and wrap in paragraphs
+  const cleanText = (text: string) => {
+    if (!text) return ''
+    if (text.includes('<p>') || text.includes('class=')) return text
+
+    // Split by multiple newlines to isolate blocks
+    const blocks = text.split(/\n\n+/)
+    
+    return blocks
+      .filter(block => block.trim().length > 0)
+      .map(block => {
+        let p = block.trim()
+        
+        // Stitch broken sentences within this specific block
+        p = p.replace(/([^\n])\n([^\n])/g, '$1 $2')
+        
+        // Heuristic for detecting a heading:
+        // Short length, contains letters, and does not end with typical sentence punctuation.
+        const isHeading = p.length > 2 && p.length < 90 && !/[.!?]$/.test(p) && /[a-zA-Z]/.test(p)
+        
+        if (isHeading) {
+          // If it happens to be all caps, give it a subtle sub-header look
+          const isAllCaps = p === p.toUpperCase() && /[A-Z]/.test(p)
+          
+          return `<h3 style="
+            font-size: ${isAllCaps ? '14px' : '20px'}; 
+            font-weight: ${isAllCaps ? '600' : '700'}; 
+            color: #1D1D1F; 
+            margin-top: 2.2em; 
+            margin-bottom: 0.8em; 
+            letter-spacing: ${isAllCaps ? '0.06em' : '-0.01em'}; 
+            text-transform: ${isAllCaps ? 'uppercase' : 'none'};
+            border-bottom: ${isAllCaps ? '1px solid #E5E5EA' : 'none'};
+            padding-bottom: ${isAllCaps ? '6px' : '0'};
+          ">${p}</h3>`
+        }
+        
+        // Standard paragraph
+        return `<p style="margin-bottom: 1.8em; color: #3C3C43; font-size: 16px; font-weight: 400; letter-spacing: 0.01em;">${p}</p>`
+      })
+      .join('')
+  }
+
+  const renderContent = cleanText(content) || defaultContent
 
   return (
     <>
@@ -154,8 +218,8 @@ export function DocumentViewer({
       <div className="flex-1 overflow-y-auto p-12 relative bg-white" id="document-content">
         {isLoading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-            <span style={{ fontSize: 13, color: '#86868B', fontFamily: '-apple-system, sans-serif' }}>Analyzing document with Gemini...</span>
+            <div className="w-8 h-8 border-4 border-[#0050cb]/20 border-t-[#0050cb] rounded-full animate-spin"></div>
+            <span style={{ fontSize: 13, color: '#86868B', fontFamily: '-apple-system, sans-serif' }}>{loadingPhrase}</span>
           </div>
         ) : (
           <div 
@@ -172,7 +236,16 @@ export function DocumentViewer({
             </div>
 
             <div 
-              className="prose prose-slate max-w-none text-body-lg text-on-surface/90 leading-relaxed space-y-6 text-base text-gray-800"
+              className="soothing-paper-content"
+              style={{
+                fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif',
+                fontSize: 16,
+                lineHeight: 1.85,
+                textAlign: 'left',
+                color: '#3C3C43',
+                maxWidth: '720px',
+                margin: '0 auto',
+              }}
               dangerouslySetInnerHTML={{ __html: renderContent }}
             />
           </div>

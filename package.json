@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_OPTIONS='--dns-result-order=ipv4first' next dev",
+    "dev": "node dev-server.js",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -26,7 +26,10 @@
     "recharts": "^3.8.1",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.14",
+    "openai": "^4.83.0",
+    "@anthropic-ai/sdk": "^0.36.0",
+    "pdf-parse": "^1.1.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.0",
@@ -37,6 +40,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/pdf-parse": "^1.1.4",
     "@vitejs/plugin-react": "^4.3.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",

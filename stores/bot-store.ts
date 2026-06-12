@@ -69,7 +69,7 @@ export const useBotStore = create<BotState>((set, get) => ({
       const errorMessage: Message = {
         id: Math.random().toString(36).slice(2),
         role: 'assistant',
-        content: 'Error: Failed to fetch response from Gemini. Please verify your internet connection or API key.',
+        content: err instanceof Error ? err.message : 'Error: Failed to fetch response. Please try again.',
       }
       set((state) => ({
         messages: [...state.messages, errorMessage],

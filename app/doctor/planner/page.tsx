@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { DoctorTopBar } from '@/components/doctor/top-bar'
 import { usePlannerStore, PlannerTask } from '@/stores/planner-store'
+import { PlannerBotSidebar } from '@/components/doctor/planner-bot-sidebar'
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -14,10 +15,12 @@ function formatLocalDate(date: Date) {
 }
 
 export default function PlannerPage() {
-  const { tasks, isLoading, fetchTasks, addTask, toggleTask, deleteTask } = usePlannerStore()
+  const { tasks, milestones, isLoading, fetchTasks, fetchMilestones, addTask, toggleTask, deleteTask, updateMilestoneStatus, deleteMilestone } = usePlannerStore()
   const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 9)) // Set to June 9th 2026 (Today)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isBotCollapsed, setIsBotCollapsed] = useState(false)
   const [selectedDateStr, setSelectedDateStr] = useState('')
+  const [viewMode, setViewMode] = useState<'month' | 'today'>('month')
 
   // Form states for new task
   const [newTitle, setNewTitle] = useState('')
@@ -27,7 +30,8 @@ export default function PlannerPage() {
 
   useEffect(() => {
     fetchTasks()
-  }, [fetchTasks])
+    fetchMilestones()
+  }, [fetchTasks, fetchMilestones])
 
   // Get date information
   const year = currentDate.getFullYear()
@@ -118,14 +122,23 @@ export default function PlannerPage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      {/* Main calendar column */}
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
       <DoctorTopBar
         title="Clinical Planner"
         subtitle={monthName}
         actions={
           <>
             <button
-              onClick={() => setCurrentDate(new Date())}
+              onClick={() => {
+                if (viewMode === 'today') {
+                  setViewMode('month')
+                  setCurrentDate(new Date())
+                } else {
+                  setViewMode('today')
+                }
+              }}
               style={{
                 padding: '7px 14px',
                 borderRadius: 8,
@@ -141,7 +154,7 @@ export default function PlannerPage() {
                 gap: 5,
               }}
             >
-              Today
+              {viewMode === 'today' ? 'Month View' : 'Today'}
             </button>
             <button
               onClick={() => handleOpenAddModal(null)}
@@ -179,37 +192,8 @@ export default function PlannerPage() {
           flexShrink: 0,
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            background: 'rgba(142,142,147,0.12)',
-            borderRadius: 8,
-            padding: 2,
-            gap: 2,
-          }}
-        >
-          {['Milestone', 'Planner'].map((v) => (
-            <button
-              key={v}
-              style={{
-                padding: '4px 14px',
-                borderRadius: 6,
-                border: 'none',
-                background: v === 'Planner' ? '#fff' : 'transparent',
-                color: v === 'Planner' ? '#1D1D1F' : '#86868B',
-                fontSize: 12,
-                fontWeight: 500,
-                cursor: 'pointer',
-                fontFamily: '-apple-system, sans-serif',
-                boxShadow: v === 'Planner' ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
-              }}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-
         {/* Month nav */}
+        {viewMode === 'month' && (
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             onClick={handlePrevMonth}
@@ -227,13 +211,77 @@ export default function PlannerPage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
         </div>
+        )}
       </div>
 
-      {/* Calendar grid */}
+      {/* Main Content Area */}
       <div style={{ flex: 1, overflow: 'auto', background: '#F5F5F7', padding: 20 }}>
         {isLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
             <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+          </div>
+        ) : viewMode === 'today' ? (
+          <div style={{ maxWidth: 800, margin: '0 auto', width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
+              <div>
+                <h2 style={{ fontSize: 28, fontWeight: 700, color: '#1D1D1F', fontFamily: '-apple-system, sans-serif', letterSpacing: '-0.02em' }}>Today's Tasks</h2>
+                <p style={{ fontSize: 15, color: '#86868B', marginTop: 4 }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+              </div>
+              <button
+                onClick={() => handleOpenAddModal(new Date())}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 20,
+                  border: 'none',
+                  background: '#0050cb',
+                  color: '#fff',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontFamily: '-apple-system, sans-serif',
+                  boxShadow: '0 4px 12px rgba(0,80,203,0.2)',
+                  transition: 'transform 0.2s, box-shadow 0.2s'
+                }}
+              >
+                + Quick Add
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {tasks.filter((t) => t.due_date?.startsWith(formatLocalDate(new Date()))).length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '60px 20px', background: '#fff', borderRadius: 16, border: '1px dashed rgba(0,0,0,0.1)' }}>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
+                  <h3 style={{ fontSize: 18, fontWeight: 600, color: '#1D1D1F', marginBottom: 6 }}>All caught up!</h3>
+                  <p style={{ fontSize: 14, color: '#86868B' }}>No tasks left for today. Enjoy your day or plan ahead.</p>
+                </div>
+              ) : (
+                tasks.filter((t) => t.due_date?.startsWith(formatLocalDate(new Date()))).map((t) => {
+                  const colors = getCategoryColor(t.category)
+                  return (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', background: '#fff', padding: '16px 20px', borderRadius: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', opacity: t.is_completed ? 0.6 : 1, transition: 'all 0.2s' }}>
+                      <button onClick={() => toggleTask(t.id, t.is_completed)} style={{ width: 28, height: 28, borderRadius: '50%', border: t.is_completed ? 'none' : '2px solid rgba(0,0,0,0.2)', background: t.is_completed ? '#34C759' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', marginRight: 16, flexShrink: 0, transition: 'all 0.2s' }}>
+                        {t.is_completed && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                      </button>
+                      
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontSize: 16, fontWeight: 600, color: '#1D1D1F', textDecoration: t.is_completed ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</span>
+                          <div style={{ padding: '2px 8px', borderRadius: 12, background: colors.bg, color: colors.text, fontSize: 11, fontWeight: 600, textTransform: 'capitalize' }}>{t.category}</div>
+                        </div>
+                        {t.description && <div style={{ fontSize: 14, color: '#86868B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.description}</div>}
+                      </div>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginLeft: 16 }}>
+                        <span style={{ fontSize: 12, padding: '4px 10px', borderRadius: 8, background: t.priority === 'high' ? '#FF3B301A' : t.priority === 'medium' ? '#FF95001A' : '#34C7591A', color: t.priority === 'high' ? '#FF3B30' : t.priority === 'medium' ? '#FF9500' : '#34C759', fontWeight: 600, textTransform: 'capitalize' }}>{t.priority} Priority</span>
+                        <button onClick={() => deleteTask(t.id)} title="Delete task" style={{ background: 'none', border: 'none', color: '#FF3B30', cursor: 'pointer', opacity: 0.6, padding: 4, borderRadius: 4 }}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </div>
         ) : (
           <div
@@ -547,6 +595,13 @@ export default function PlannerPage() {
           </div>
         </div>
       )}
+
+      {/* Removed Milestone Modal */}
+      </div>
+      <PlannerBotSidebar
+        isCollapsed={isBotCollapsed}
+        onToggleCollapse={() => setIsBotCollapsed((v) => !v)}
+      />
     </div>
   )
 }

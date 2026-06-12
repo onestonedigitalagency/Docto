@@ -13,7 +13,7 @@ export default function ClinicalSessionPage() {
   const patientId = params.patientId
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-[#F5F5F7] min-h-[calc(100vh-80px)] p-6 -m-6 rounded-tl-xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -45,27 +45,29 @@ export default function ClinicalSessionPage() {
         {/* Left Column: Recording & Extraction Panels */}
         <div className="xl:col-span-1 space-y-6">
           <SessionRecorder />
-          
-          <div className="glass-card p-6 bg-primary-container/10 border-primary/20">
-            <div className="flex items-center gap-2 mb-4">
-              <Bot className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-primary">AI Extraction Engine</h3>
+
+          <div className="rounded-[14px] p-5 bg-white border border-black/5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 rounded-lg bg-blue-50 text-[#0050cb]">
+                <Bot className="h-4 w-4" />
+              </div>
+              <h3 className="font-semibold text-[#1D1D1F] text-sm tracking-tight">AI Extraction Engine</h3>
             </div>
-            <p className="text-sm text-on-surface-variant mb-4">
-              Docto is analyzing the conversation to extract medical codes, prescriptions, and issues.
+            <p className="text-xs text-[#3C3C43] mb-4">
+              Docto is actively analyzing the conversation to extract medical codes, prescriptions, and issues.
             </p>
             <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span>Symptoms & Issues</span>
-                <span className="text-success flex items-center gap-1"><CheckCircle2 className="h-3 w-3"/> Extracted</span>
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-[#1D1D1F]">Symptoms & Issues</span>
+                <span className="text-[#34C759] flex items-center gap-1 font-semibold"><CheckCircle2 className="h-3.5 w-3.5"/> Extracted</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span>Prescriptions</span>
-                <span className="text-success flex items-center gap-1"><CheckCircle2 className="h-3 w-3"/> Extracted</span>
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-[#1D1D1F]">Prescriptions</span>
+                <span className="text-[#34C759] flex items-center gap-1 font-semibold"><CheckCircle2 className="h-3.5 w-3.5"/> Extracted</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span>ICD-10 Codes</span>
-                <span className="text-on-surface-variant flex items-center gap-1">Waiting...</span>
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-[#1D1D1F]">ICD-10 Codes</span>
+                <span className="text-[#0050cb] flex items-center gap-1 font-semibold animate-pulse">Waiting...</span>
               </div>
             </div>
           </div>
