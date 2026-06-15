@@ -1,8 +1,8 @@
   const { OpenAI } = require("openai");
 
-const apiKey = "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";
+const apiKey = "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";
 const baseURL = "https://integrate.api.nvidia.com/v1";
-const model = "google/gemma-2-9b-it";
+const model = "moonshotai/kimi-k2.6";
 
 async function run() {
   try {

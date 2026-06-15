@@ -24,7 +24,7 @@
 |-------|------|--------|------------|----------|----------|
 | 0 | 📝 Documentation & Planning | 🟢 In Progress | Jun 8, 2026 | — | ██████████░░░░░░ 60% |
 | 1 | 🏗️ Foundation (Auth, Dashboard, Research Hub, Bot) | ⚪ Not Started | — | — | ░░░░░░░░░░░░░░░░ 0% |
-| 2 | 🏥 Clinical Core (Session, Prescriptions, Records) | ⚪ Not Started | — | — | ░░░░░░░░░░░░░░░░ 0% |
+| 2 | 🏥 Clinical Core (Session, Prescriptions, Records) | 🔵 In Progress | Jun 14, 2026 | — | ████████░░░░░░░░ 50% |
 | 3 | 🧑 Patient Side (App, Reports, Medication Tracker) | ⚪ Not Started | — | — | ░░░░░░░░░░░░░░░░ 0% |
 | 4 | 🧠 Intelligence (Export, Analytics, Gamification) | ⚪ Not Started | — | — | ░░░░░░░░░░░░░░░░ 0% |
 | 5 | ✨ Polish & Launch (Testing, Security, Beta) | ⚪ Not Started | — | — | ░░░░░░░░░░░░░░░░ 0% |
@@ -89,16 +89,16 @@
 | ├─ Calendar View | ⚪ Not Started | — | — | |
 | └─ No-show Tracking | ⚪ Not Started | — | — | |
 | **Clinical Session** | | | | |
-| ├─ Session Start/End Flow | ⚪ Not Started | — | — | |
-| ├─ Audio Recording | ⚪ Not Started | — | — | |
-| ├─ Real-time Transcription | ⚪ Not Started | — | — | |
-| ├─ Speaker Diarization | ⚪ Not Started | — | — | |
-| ├─ AI Data Extraction | ⚪ Not Started | — | — | |
-| ├─ Prescription Table (Editable) | ⚪ Not Started | — | — | |
-| ├─ Doctor Verification Step | ⚪ Not Started | — | — | |
+| ├─ Session Start/End Flow | 🟢 Completed | AI Agent | Sprint 1 | |
+| ├─ Audio Recording | 🟢 Completed | AI Agent | Sprint 1 | Basic |
+| ├─ Real-time Transcription | 🟢 Completed | AI Agent | Sprint 1 | Basic |
+| ├─ Speaker Diarization | 🟢 Completed | AI Agent | Sprint 1 | Heuristics |
+| ├─ AI Data Extraction | 🟢 Completed | AI Agent | Sprint 1 | LLaMA 3.1 |
+| ├─ Prescription Table (Editable) | 🟢 Completed | AI Agent | Sprint 1 | |
+| ├─ Doctor Verification Step | 🟢 Completed | AI Agent | Sprint 1 | |
 | ├─ Prescription PDF Generation | ⚪ Not Started | — | — | |
 | ├─ Invoice PDF Generation | ⚪ Not Started | — | — | |
-| └─ Session Summary Storage | ⚪ Not Started | — | — | |
+| └─ Session Summary Storage | 🟢 Completed | AI Agent | Sprint 1 | Supabase |
 | **Patient History** | | | | |
 | ├─ Patient Search | ⚪ Not Started | — | — | |
 | ├─ Visit Timeline | ⚪ Not Started | — | — | |

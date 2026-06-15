@@ -1,84 +1,410 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { ArrowLeft, CheckCircle2, FileText, Bot } from "lucide-react"
+import {
+  ArrowLeft,
+  FileText,
+  User,
+  Calendar,
+  Activity,
+  CheckCircle2,
+  Loader2,
+  ClipboardList,
+  Bot,
+  AlertCircle,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { SessionRecorder } from "@/components/doctor/session-recorder"
 import { TranscriptViewer } from "@/components/doctor/transcript-viewer"
 import { PrescriptionTable } from "@/components/doctor/prescription-table"
+import { AiPromptPanel } from "@/components/doctor/ai-prompt-panel"
+import { SessionConfirmationModal } from "@/components/doctor/session-confirmation-modal"
+import { useSessionStore } from "@/stores/session-store"
+import { checkLocalInteractions } from "@/lib/medical/openfda"
+
+// ── Mock patient data (replace with Supabase fetch once patient_profiles table confirmed) ──
+const DEMO_PATIENT = {
+  name: "Rahul Kumar",
+  age: 34,
+  gender: "Male",
+  bloodGroup: "O+",
+  lastVisit: "May 12, 2026",
+  condition: "Follow-up Visit",
+}
+
+// ── Status Badge Config ────────────────────────────────────────────────────────
+
+const STATUS_BADGE: Record<string, { label: string; className: string }> = {
+  idle: { label: "Ready", className: "bg-[#D1D1D6] text-[#3C3C43]" },
+  recording: { label: "● Recording", className: "bg-red-100 text-red-600 animate-pulse" },
+  processing: { label: "⟳ Analyzing", className: "bg-blue-100 text-blue-600" },
+  review: { label: "Review Required", className: "bg-amber-100 text-amber-700" },
+  confirmed: { label: "✓ Confirmed", className: "bg-green-100 text-green-700" },
+  submitted: { label: "✓ Submitted", className: "bg-green-100 text-green-700" },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function ClinicalSessionPage() {
   const params = useParams()
-  const patientId = params.patientId
+  // patientId from URL is used internally only — never re-exposed in URLs to patient-facing pages
+  const patientId = params.patientId as string
+
+  const {
+    sessionStatus,
+    sessionId,
+    prescriptions,
+    transcript,
+    summary,
+    patientSummary,
+    issues,
+    diagnosis,
+    referrals,
+    lifestyleSuggestions,
+    setIsExtracting,
+    setExtractionResults,
+    setSessionStatus,
+    setAiPromptMessage,
+    setSessionId,
+    clearSession,
+    isExtracting,
+    aiPromptMessage,
+  } = useSessionStore()
+
+  const [showConfirmModal, setShowConfirmModal] = React.useState(false)
+  const [prescriptionId, setPrescriptionId] = React.useState<string | null>(null)
+  const [localInteractionWarnings, setLocalInteractionWarnings] = React.useState<string[]>([])
+
+  // Check local interactions whenever prescriptions change
+  React.useEffect(() => {
+    if (prescriptions.length > 1) {
+      const warnings = checkLocalInteractions(prescriptions)
+      setLocalInteractionWarnings(warnings)
+    } else {
+      setLocalInteractionWarnings([])
+    }
+  }, [prescriptions])
+
+  // ── Trigger AI Extraction when recording stops ─────────────────────────────
+
+  const handleRecordingStop = React.useCallback(async () => {
+    if (transcript.length === 0) {
+      setSessionStatus('idle')
+      return
+    }
+
+    setIsExtracting(true)
+
+    try {
+      const fullTranscript = transcript
+        .map((t) => `${t.speaker}: ${t.text}`)
+        .join("\n")
+
+      const response = await fetch('/api/session/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: fullTranscript }),
+      })
+
+      if (!response.ok) throw new Error("Extraction failed")
+
+      const { data } = await response.json()
+
+      if (data) {
+        // Map API response fields to store fields
+        setExtractionResults({
+          summary: data.summary || '',
+          patientSummary: data.patient_summary || '',
+          issues: data.issues || [],
+          diagnosis: data.diagnosis || [],
+          referrals: data.referrals || [],
+          lifestyleSuggestions: data.lifestyle_suggestions || [],
+          prescriptions: (data.prescriptions || []).map((rx: any) => ({
+            id: rx.id,
+            name: rx.name,
+            dosage: rx.dosage,
+            whenToTake: rx.when_to_take || [],
+            timing: rx.timing || [],
+            mealRelation: rx.meal_relation || 'any',
+            durationDays: rx.duration_days || 0,
+            notes: rx.notes || '',
+            actions: rx.actions || '',
+            confidence: rx.confidence || 'medium',
+            interactionWarning: rx.interactionWarning,
+          })),
+        })
+
+        if (data.aiPromptMessage) {
+          setAiPromptMessage(data.aiPromptMessage)
+        }
+
+        setSessionStatus('review')
+
+        // Save session to Supabase (non-blocking)
+        saveSessionToSupabase(data)
+      }
+    } catch (error) {
+      console.error("Extraction error:", error)
+      setSessionStatus('review') // Still let doctor work manually
+    } finally {
+      setIsExtracting(false)
+    }
+  }, [transcript, setIsExtracting, setExtractionResults, setSessionStatus, setAiPromptMessage])
+
+  // Listen for manual extraction trigger (for demo transcript)
+  React.useEffect(() => {
+    const handler = () => {
+      setSessionStatus('processing')
+      handleRecordingStop()
+    }
+    window.addEventListener('trigger-extraction', handler)
+    return () => window.removeEventListener('trigger-extraction', handler)
+  }, [handleRecordingStop, setSessionStatus])
+
+  // ── Save to Supabase ───────────────────────────────────────────────────────
+
+  const saveSessionToSupabase = async (extractedData: any) => {
+    if (!sessionId) return
+
+    try {
+      const res = await fetch('/api/session/end', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          transcript,
+          summary: extractedData.summary,
+          patientSummary: extractedData.patient_summary,
+          issues: extractedData.issues,
+          diagnosis: extractedData.diagnosis,
+          referrals: extractedData.referrals,
+          lifestyleSuggestions: extractedData.lifestyle_suggestions,
+          prescriptions: extractedData.prescriptions,
+        }),
+      })
+      const data = await res.json()
+      if (data.prescriptionId) {
+        setPrescriptionId(data.prescriptionId)
+      }
+    } catch (error) {
+      console.error("Failed to save session to Supabase:", error)
+    }
+  }
+
+  // ── Submit to Patient Record ───────────────────────────────────────────────
+
+  const handleFinalSubmit = async () => {
+    await fetch('/api/session/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, prescriptionId }),
+    })
+    setSessionStatus('submitted')
+    setShowConfirmModal(false)
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  const statusBadge = STATUS_BADGE[sessionStatus] || STATUS_BADGE.idle
+  const isProcessing = sessionStatus === 'processing' || isExtracting
 
   return (
-    <div className="space-y-6 bg-[#F5F5F7] min-h-[calc(100vh-80px)] p-6 -m-6 rounded-tl-xl">
-      {/* Header */}
+    <div className="space-y-5 bg-[#F5F5F7] min-h-[calc(100vh-80px)] p-5 -m-6 rounded-tl-xl">
+
+      {/* ── Header ── */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/doctor/dashboard"><ArrowLeft className="h-5 w-5" /></Link>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" asChild className="h-9 w-9">
+            <Link href="/doctor/dashboard"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
           <div>
-            <h1 className="text-headline-md font-bold text-on-surface">Clinical Session</h1>
-            <p className="text-body-sm text-on-surface-variant flex items-center gap-2">
-              Patient: <span className="font-semibold text-primary">Rahul Kumar (ID: {patientId})</span>
-              <span>•</span>
-              Follow-up Visit
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold text-[#1D1D1F]">Clinical Session</h1>
+              <Badge className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border-0 ${statusBadge.className}`}>
+                {statusBadge.label}
+              </Badge>
+            </div>
+            <p className="text-xs text-[#8E8E93] mt-0.5">
+              {DEMO_PATIENT.name} · {DEMO_PATIENT.age}y · {DEMO_PATIENT.condition}
             </p>
           </div>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" className="gap-2">
-            <FileText className="h-4 w-4" /> View History
-          </Button>
-          <Button variant="success" asChild className="gap-2">
-            <Link href={`/doctor/session/${patientId}/review`}>
-              <CheckCircle2 className="h-4 w-4" /> Finish & Review
+
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" asChild>
+            <Link href={`/doctor/patients`}>
+              <FileText className="h-3.5 w-3.5" /> Patient History
             </Link>
           </Button>
+          {sessionStatus === 'review' && (
+            <Button
+              id="open-submit-modal-btn"
+              size="sm"
+              className="gap-1.5 h-8 text-xs bg-[#34C759] hover:bg-[#2db34a] text-white font-semibold"
+              onClick={() => setShowConfirmModal(true)}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Submit to Patient
+            </Button>
+          )}
+          {sessionStatus === 'submitted' && (
+            <Badge className="h-8 px-3 bg-green-100 text-green-700 border-0 font-semibold text-xs">
+              <CheckCircle2 className="h-3 w-3 mr-1" /> Session Submitted
+            </Badge>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Left Column: Recording & Extraction Panels */}
-        <div className="xl:col-span-1 space-y-6">
-          <SessionRecorder />
+      {/* ── Patient Info Strip ── */}
+      <div className="bg-white rounded-[14px] border border-black/5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] px-5 py-3">
+        <div className="flex items-center gap-6 flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#0050cb] to-[#5856D6] flex items-center justify-center text-white font-bold text-sm">
+              {DEMO_PATIENT.name[0]}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-[#1D1D1F]">{DEMO_PATIENT.name}</p>
+              <p className="text-[10px] text-[#8E8E93]">{DEMO_PATIENT.gender} · {DEMO_PATIENT.bloodGroup}</p>
+            </div>
+          </div>
+          {[
+            { icon: User, label: "Age", value: `${DEMO_PATIENT.age} years` },
+            { icon: Calendar, label: "Last Visit", value: DEMO_PATIENT.lastVisit },
+            { icon: Activity, label: "Visit Type", value: DEMO_PATIENT.condition },
+          ].map(({ icon: Icon, label, value }) => (
+            <div key={label} className="flex items-center gap-1.5 text-xs">
+              <Icon className="h-3.5 w-3.5 text-[#8E8E93]" />
+              <span className="text-[#8E8E93]">{label}:</span>
+              <span className="font-semibold text-[#1D1D1F]">{value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
-          <div className="rounded-[14px] p-5 bg-white border border-black/5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+      {/* ── Local Drug Interaction Warning Banner ── */}
+      {localInteractionWarnings.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-[14px] px-5 py-3">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold text-red-700 mb-1">Drug Interaction Warnings</p>
+              {localInteractionWarnings.map((w, i) => (
+                <p key={i} className="text-xs text-red-600">⚠️ {w}</p>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Main Content Grid ── */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+
+        {/* ── Left Column ── */}
+        <div className="xl:col-span-1 space-y-4">
+
+          {/* Session Recorder */}
+          <SessionRecorder onStop={handleRecordingStop} />
+
+          {/* AI Extraction Status Card */}
+          <div className="rounded-[14px] p-4 bg-white border border-black/5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
             <div className="flex items-center gap-2 mb-3">
               <div className="p-1.5 rounded-lg bg-blue-50 text-[#0050cb]">
                 <Bot className="h-4 w-4" />
               </div>
-              <h3 className="font-semibold text-[#1D1D1F] text-sm tracking-tight">AI Extraction Engine</h3>
+              <h3 className="font-semibold text-[#1D1D1F] text-xs tracking-tight">AI Extraction Engine</h3>
             </div>
-            <p className="text-xs text-[#3C3C43] mb-4">
-              Docto is actively analyzing the conversation to extract medical codes, prescriptions, and issues.
-            </p>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-[#1D1D1F]">Symptoms & Issues</span>
-                <span className="text-[#34C759] flex items-center gap-1 font-semibold"><CheckCircle2 className="h-3.5 w-3.5"/> Extracted</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-[#1D1D1F]">Prescriptions</span>
-                <span className="text-[#34C759] flex items-center gap-1 font-semibold"><CheckCircle2 className="h-3.5 w-3.5"/> Extracted</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-[#1D1D1F]">ICD-10 Codes</span>
-                <span className="text-[#0050cb] flex items-center gap-1 font-semibold animate-pulse">Waiting...</span>
-              </div>
+            <div className="space-y-2.5">
+              {[
+                { label: "Symptoms & Issues", count: issues.length },
+                { label: "Diagnosis (ICD-10)", count: diagnosis.length },
+                { label: "Prescriptions", count: prescriptions.length },
+                { label: "Referrals & Tests", count: referrals.length },
+                { label: "Lifestyle Advice", count: lifestyleSuggestions.length },
+              ].map(({ label, count }) => (
+                <div key={label} className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-[#1D1D1F]">{label}</span>
+                  {isProcessing ? (
+                    <span className="text-[#0050cb] flex items-center gap-1 font-semibold animate-pulse">
+                      <Loader2 className="h-3 w-3 animate-spin" />Analyzing
+                    </span>
+                  ) : count > 0 ? (
+                    <span className="text-[#34C759] flex items-center gap-1 font-semibold">
+                      <CheckCircle2 className="h-3 w-3" />{count} found
+                    </span>
+                  ) : (
+                    <span className="text-[#D1D1D6] font-medium">Waiting...</span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
+
+          {/* Patient Summary Preview (for doctor's reference) */}
+          {patientSummary && (
+            <div className="rounded-[14px] p-4 bg-gradient-to-br from-[#EBF1FF] to-white border border-[#0050cb]/15 shadow-[0_1px_3px_rgba(0,80,203,0.06)]">
+              <div className="flex items-center gap-1.5 mb-2">
+                <ClipboardList className="h-3.5 w-3.5 text-[#0050cb]" />
+                <h3 className="text-[11px] font-bold text-[#0050cb] uppercase tracking-wide">Patient Summary Preview</h3>
+              </div>
+              <p className="text-xs text-[#3C3C43] leading-relaxed">{patientSummary}</p>
+              <p className="text-[10px] text-[#8E8E93] mt-2">This is what the patient will see.</p>
+            </div>
+          )}
         </div>
 
-        {/* Middle/Right Column: Transcripts & Prescriptions */}
-        <div className="xl:col-span-2 space-y-6">
-          <TranscriptViewer isRecording={true} />
-          <PrescriptionTable />
+        {/* ── Right Column ── */}
+        <div className="xl:col-span-2 space-y-4">
+
+          {/* Transcript Viewer */}
+          <TranscriptViewer />
+
+          {/* AI Prompt Panel (post-extraction) */}
+          {aiPromptMessage && (
+            <AiPromptPanel
+              onConfirm={() => {}}
+              onManualEdit={() => {
+                const tableEl = document.getElementById('prescription-table-section')
+                tableEl?.scrollIntoView({ behavior: 'smooth' })
+              }}
+            />
+          )}
+
+          {/* Prescription Table */}
+          <div id="prescription-table-section">
+            <PrescriptionTable />
+          </div>
+
+          {/* Final Submit Button (bottom of page) */}
+          {sessionStatus === 'review' && (
+            <div className="bg-white rounded-[14px] border border-black/5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-4 flex items-center justify-between gap-4">
+              <div className="text-xs text-[#8E8E93]">
+                <p className="font-semibold text-[#1D1D1F] mb-0.5">Ready to submit?</p>
+                <p>Review prescriptions above, then submit to update the patient's medical record.</p>
+              </div>
+              <Button
+                id="submit-to-patient-btn"
+                onClick={() => setShowConfirmModal(true)}
+                className="bg-[#34C759] hover:bg-[#2db34a] text-white font-bold gap-2 h-11 px-6 rounded-xl flex-shrink-0"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Submit to Patient Record
+              </Button>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* ── Confirmation Modal ── */}
+      {showConfirmModal && (
+        <SessionConfirmationModal
+          patientName={DEMO_PATIENT.name}
+          onClose={() => setShowConfirmModal(false)}
+          onSubmit={handleFinalSubmit}
+        />
+      )}
     </div>
   )
 }

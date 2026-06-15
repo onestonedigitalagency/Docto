@@ -101,18 +101,12 @@ app/api/
 │   │   └── triage-response/route.ts # POST: submit triage answers
 │   └── upcoming/route.ts           # GET: upcoming appointments
 │
-├── sessions/
-│   ├── route.ts                    # POST: start session
-│   ├── [sessionId]/
-│   │   ├── route.ts                # GET: session details
-│   │   ├── transcript/route.ts     # GET: transcript, POST: append
-│   │   ├── end/route.ts            # POST: end session
-│   │   ├── prescription/route.ts   # GET/PUT: prescription table
-│   │   ├── confirm/route.ts        # POST: doctor confirms & generates docs
-│   │   └── documents/route.ts      # GET: generated PDFs
-│   └── recording/
-│       ├── start/route.ts          # POST: start recording
-│       └── stop/route.ts           # POST: stop recording
+├── session/
+│   ├── start/route.ts              # POST: create new session
+│   ├── extract/route.ts            # POST: AI extraction via LLaMA 3.1
+│   ├── transcribe/route.ts         # POST: store transcript chunks
+│   ├── voice-command/route.ts      # POST: modify prescription via voice
+│   └── submit/route.ts             # POST: final session confirmation
 │
 ├── research/
 │   ├── upload/route.ts             # POST: upload PDF/image

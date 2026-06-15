@@ -3,63 +3,106 @@ import { useSessionStore } from './session-store'
 
 describe('useSessionStore', () => {
   beforeEach(() => {
-    // Reset store before each test
     useSessionStore.getState().clearSession()
   })
 
-  it('should initialize with default states', () => {
+  it('should initialize with default values', () => {
     const state = useSessionStore.getState()
     expect(state.isRecording).toBe(false)
     expect(state.transcript).toEqual([])
-    expect(state.summary).toBe('')
     expect(state.prescriptions).toEqual([])
+    expect(state.sessionStatus).toBe('idle')
+    expect(state.sessionId).toBeNull()
   })
 
-  it('should update recording state', () => {
-    useSessionStore.getState().setIsRecording(true)
-    expect(useSessionStore.getState().isRecording).toBe(true)
+  it('should add transcript entries', () => {
+    const { addTranscript } = useSessionStore.getState()
+    addTranscript({ speaker: 'Doctor', time: '00:02', text: 'Hello, how are you?' })
+    addTranscript({ speaker: 'Patient', time: '00:05', text: 'I have a cough.' })
+
+    const { transcript } = useSessionStore.getState()
+    expect(transcript).toHaveLength(2)
+    expect(transcript[0].speaker).toBe('Doctor')
+    expect(transcript[1].speaker).toBe('Patient')
   })
 
-  it('should add transcript entries with unique IDs', () => {
-    const store = useSessionStore.getState()
-    store.addTranscript({ speaker: 'Doctor', time: '00:01', text: 'Hello' })
-    
-    const updatedState = useSessionStore.getState()
-    expect(updatedState.transcript.length).toBe(1)
-    expect(updatedState.transcript[0].speaker).toBe('Doctor')
-    expect(updatedState.transcript[0].text).toBe('Hello')
-    expect(updatedState.transcript[0].id).toBeDefined()
-  })
+  it('should add and remove prescriptions', () => {
+    const { addPrescription, removePrescription } = useSessionStore.getState()
 
-  it('should manage prescriptions correctly', () => {
-    const store = useSessionStore.getState()
-    const mockMed = {
-      name: 'Amoxicillin',
-      dosage: '500mg',
-      frequency: 'Three times a day',
-      duration: '7 Days',
-      notes: 'Take after meals'
+    const rx = {
+      id: 'rx_test_1',
+      name: 'Paracetamol 650mg',
+      dosage: '1 tablet',
+      whenToTake: ['morning', 'night'],
+      timing: ['08:00', '21:00'],
+      mealRelation: 'after_meals' as const,
+      durationDays: 5,
+      notes: 'Take with warm water',
+      actions: '',
+      confidence: 'high' as const,
     }
 
-    // Add prescription
-    store.addPrescription(mockMed)
-    expect(useSessionStore.getState().prescriptions.length).toBe(1)
-    expect(useSessionStore.getState().prescriptions[0]).toEqual(mockMed)
+    addPrescription(rx)
+    expect(useSessionStore.getState().prescriptions).toHaveLength(1)
 
-    // Update prescription
-    const updatedMed = { ...mockMed, dosage: '250mg' }
-    useSessionStore.getState().updatePrescription(0, updatedMed)
-    expect(useSessionStore.getState().prescriptions[0].dosage).toBe('250mg')
+    removePrescription('rx_test_1')
+    expect(useSessionStore.getState().prescriptions).toHaveLength(0)
+  })
 
-    // Remove prescription
-    useSessionStore.getState().removePrescription(0)
-    expect(useSessionStore.getState().prescriptions.length).toBe(0)
+  it('should update a prescription', () => {
+    const { addPrescription, updatePrescription } = useSessionStore.getState()
+
+    addPrescription({
+      id: 'rx_1',
+      name: 'Amoxicillin 500mg',
+      dosage: '1 capsule',
+      whenToTake: ['morning', 'night'],
+      timing: ['08:00', '21:00'],
+      mealRelation: 'after_meals',
+      durationDays: 7,
+      notes: '',
+      actions: '',
+      confidence: 'high',
+    })
+
+    updatePrescription('rx_1', { durationDays: 5, notes: 'Updated note' })
+
+    const updated = useSessionStore.getState().prescriptions.find(p => p.id === 'rx_1')
+    expect(updated?.durationDays).toBe(5)
+    expect(updated?.notes).toBe('Updated note')
+    expect(updated?.name).toBe('Amoxicillin 500mg') // unchanged
+  })
+
+  it('should set session status', () => {
+    const { setSessionStatus } = useSessionStore.getState()
+    setSessionStatus('recording')
+    expect(useSessionStore.getState().sessionStatus).toBe('recording')
+
+    setSessionStatus('review')
+    expect(useSessionStore.getState().sessionStatus).toBe('review')
+  })
+
+  it('should clear session completely', () => {
+    const store = useSessionStore.getState()
+    store.addTranscript({ speaker: 'Doctor', time: '00:01', text: 'Test' })
+    store.setSessionStatus('recording')
+    store.setIsRecording(true)
+
+    store.clearSession()
+
+    const cleared = useSessionStore.getState()
+    expect(cleared.transcript).toHaveLength(0)
+    expect(cleared.sessionStatus).toBe('idle')
+    expect(cleared.isRecording).toBe(false)
+    expect(cleared.prescriptions).toHaveLength(0)
   })
 
   it('should seed demo transcript', () => {
-    useSessionStore.getState().seedDemoTranscript()
-    const state = useSessionStore.getState()
-    expect(state.transcript.length).toBeGreaterThan(0)
-    expect(state.transcript[0].speaker).toBe('Doctor')
+    const { seedDemoTranscript } = useSessionStore.getState()
+    seedDemoTranscript()
+
+    const { transcript } = useSessionStore.getState()
+    expect(transcript.length).toBeGreaterThan(0)
+    expect(transcript[0].speaker).toBe('Doctor')
   })
 })
