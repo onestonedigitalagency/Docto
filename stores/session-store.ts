@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -119,7 +120,9 @@ export interface SessionState {
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-export const useSessionStore = create<SessionState>((set) => ({
+export const useSessionStore = create<SessionState>()(
+  persist(
+    (set) => ({
   sessionId: null,
   sessionToken: null,
   sessionStatus: 'idle',
@@ -212,4 +215,23 @@ export const useSessionStore = create<SessionState>((set) => ({
       ],
       sessionStatus: 'idle',
     }),
-}))
+  }),
+  {
+    name: 'docto-session-storage', // saves to localStorage by default
+    partialize: (state) => ({
+      // Only persist data that should survive a refresh
+      sessionId: state.sessionId,
+      sessionToken: state.sessionToken,
+      sessionStatus: state.sessionStatus === 'recording' ? 'idle' : state.sessionStatus,
+      transcript: state.transcript,
+      summary: state.summary,
+      patientSummary: state.patientSummary,
+      issues: state.issues,
+      diagnosis: state.diagnosis,
+      prescriptions: state.prescriptions,
+      referrals: state.referrals,
+      lifestyleSuggestions: state.lifestyleSuggestions,
+      aiPromptMessage: state.aiPromptMessage,
+    }),
+  }
+))

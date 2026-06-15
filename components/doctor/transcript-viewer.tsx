@@ -22,7 +22,10 @@ export function TranscriptViewer() {
     isExtracting,
   } = useSessionStore()
 
-  const [activeTab, setActiveTab] = React.useState<'transcript' | 'clinical' | 'patient'>('transcript')
+  const hasSummary = summary || issues.length > 0 || diagnosis.length > 0
+  const [activeTab, setActiveTab] = React.useState<'transcript' | 'clinical' | 'patient'>(
+    hasSummary ? 'clinical' : 'transcript'
+  )
   const [autoScroll, setAutoScroll] = React.useState(true)
   const scrollRef = React.useRef<HTMLDivElement>(null)
 
@@ -40,7 +43,7 @@ export function TranscriptViewer() {
     }
   }, [sessionStatus, summary])
 
-  const hasSummary = summary || issues.length > 0 || diagnosis.length > 0
+  // Only keep autoScroll and effects
 
   return (
     <Card className="flex flex-col rounded-[14px] overflow-hidden bg-white border-black/5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]" style={{ height: '420px' }}>
@@ -61,13 +64,13 @@ export function TranscriptViewer() {
           </Badge>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1">
+        {/* Toggle Button Segmented Control */}
+        <div className="bg-[#F5F5F7] p-1 rounded-lg flex items-center mb-1 max-w-[350px]">
           {(
             [
-              { key: 'transcript', label: 'Live Transcript', show: true },
               { key: 'clinical', label: 'Clinical Summary', show: hasSummary },
               { key: 'patient', label: 'Patient View', show: !!patientSummary },
+              { key: 'transcript', label: 'Transcript', show: true },
             ] as const
           )
             .filter((t) => t.show)
@@ -75,10 +78,10 @@ export function TranscriptViewer() {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-3 py-1.5 text-[11px] font-semibold rounded-t-md border-b-2 transition-colors ${
+                className={`flex-1 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all ${
                   activeTab === tab.key
-                    ? 'text-[#0050cb] border-[#0050cb] bg-blue-50/50'
-                    : 'text-[#8E8E93] border-transparent hover:text-[#3C3C43]'
+                    ? 'bg-white text-[#1D1D1F] shadow-sm'
+                    : 'text-[#8E8E93] hover:text-[#3C3C43]'
                 }`}
               >
                 {tab.label}

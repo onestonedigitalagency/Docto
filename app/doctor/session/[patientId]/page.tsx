@@ -212,7 +212,7 @@ export default function ClinicalSessionPage() {
   const isProcessing = sessionStatus === 'processing' || isExtracting
 
   return (
-    <div className="space-y-5 bg-[#F5F5F7] min-h-[calc(100vh-80px)] p-5 -m-6 rounded-tl-xl">
+    <div className="flex flex-col gap-5 bg-[#F5F5F7] h-screen p-6 overflow-hidden">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
@@ -300,7 +300,7 @@ export default function ClinicalSessionPage() {
       )}
 
       {/* ── Main Content Grid ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 flex-1 min-h-0">
 
         {/* ── Left Column ── */}
         <div className="xl:col-span-1 space-y-4">
@@ -356,7 +356,7 @@ export default function ClinicalSessionPage() {
         </div>
 
         {/* ── Right Column ── */}
-        <div className="xl:col-span-2 space-y-4">
+        <div className="xl:col-span-2 space-y-4 overflow-y-auto pr-2 pb-6 styled-scrollbar">
 
           {/* Transcript Viewer */}
           <TranscriptViewer />

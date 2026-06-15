@@ -49,11 +49,15 @@ function EditableCell({
   if (!editing) {
     return (
       <span
-        className={`cursor-pointer hover:bg-[#F5F5F7] rounded px-1 py-0.5 transition-colors ${className}`}
-        onClick={() => setEditing(true)}
+        className={`cursor-pointer hover:bg-[#F5F5F7] rounded px-1 py-0.5 transition-colors group inline-flex items-center gap-1.5 ${className}`}
+        onClick={() => {
+          setVal(value)
+          setEditing(true)
+        }}
         title="Click to edit"
       >
-        {value || <span className="text-[#C7C7CC] italic text-xs">Add...</span>}
+        <span>{value || <span className="text-[#C7C7CC] italic text-xs">Add...</span>}</span>
+        <Edit2 className="h-3 w-3 text-[#C7C7CC] opacity-0 group-hover:opacity-100 transition-opacity" />
       </span>
     )
   }
@@ -148,6 +152,121 @@ function createEmptyPrescription(): ExtractedPrescription {
   }
 }
 
+// ── Add Medicine Form ─────────────────────────────────────────────────────────
+
+function AddMedicineForm({
+  onAdd,
+  onCancel,
+}: {
+  onAdd: (med: ExtractedPrescription) => void
+  onCancel: () => void
+}) {
+  const [med, setMed] = React.useState<ExtractedPrescription>(createEmptyPrescription())
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!med.name.trim()) return
+    onAdd(med)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up border border-black/10">
+        <div className="bg-[#F8F9FA] border-b border-black/5 p-4 flex items-center justify-between">
+          <h4 className="text-sm font-bold text-[#1D1D1F] flex items-center gap-2">
+            <Pill className="h-4 w-4 text-[#0050cb]" /> Add New Medicine
+          </h4>
+          <button onClick={onCancel} className="text-[#8E8E93] hover:text-[#1D1D1F] transition-colors p-1 rounded-md hover:bg-black/5">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-5 space-y-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="col-span-2">
+            <label className="block text-[10px] font-semibold text-[#8E8E93] uppercase mb-1">Medicine Name *</label>
+            <input
+              autoFocus
+              required
+              value={med.name}
+              onChange={(e) => setMed({ ...med, name: e.target.value })}
+              className="w-full border border-[#D1D1D6] rounded-lg px-3 py-1.5 text-xs outline-none focus:border-[#0050cb]"
+              placeholder="e.g. Paracetamol"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-[#8E8E93] uppercase mb-1">Dosage</label>
+            <input
+              value={med.dosage}
+              onChange={(e) => setMed({ ...med, dosage: e.target.value })}
+              className="w-full border border-[#D1D1D6] rounded-lg px-3 py-1.5 text-xs outline-none focus:border-[#0050cb]"
+              placeholder="e.g. 650mg"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-[#8E8E93] uppercase mb-1">Duration (days)</label>
+            <input
+              type="number"
+              min={1}
+              value={med.durationDays}
+              onChange={(e) => setMed({ ...med, durationDays: parseInt(e.target.value) || 1 })}
+              className="w-full border border-[#D1D1D6] rounded-lg px-3 py-1.5 text-xs outline-none focus:border-[#0050cb]"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-[10px] font-semibold text-[#8E8E93] uppercase mb-1">When to take</label>
+            <WhenToTakeSelector
+              value={med.whenToTake}
+              onChange={(v) => setMed({ ...med, whenToTake: v })}
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-[#8E8E93] uppercase mb-1">Meals</label>
+            <MealSelector
+              value={med.mealRelation}
+              onChange={(v) => setMed({ ...med, mealRelation: v as any })}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-[10px] font-semibold text-[#8E8E93] uppercase mb-1">Notes</label>
+            <input
+              value={med.notes}
+              onChange={(e) => setMed({ ...med, notes: e.target.value })}
+              className="w-full border border-[#D1D1D6] rounded-lg px-3 py-1.5 text-xs outline-none focus:border-[#0050cb]"
+              placeholder="e.g. For fever"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-[#8E8E93] uppercase mb-1">Actions</label>
+            <input
+              value={med.actions}
+              onChange={(e) => setMed({ ...med, actions: e.target.value })}
+              className="w-full border border-[#D1D1D6] rounded-lg px-3 py-1.5 text-xs outline-none focus:border-[#0050cb]"
+              placeholder="e.g. Stop if rash appears"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4 border-t border-black/5 mt-2">
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="text-xs h-9">
+            Cancel
+          </Button>
+          <Button type="submit" size="sm" className="bg-[#0050cb] hover:bg-[#0040a8] text-white text-xs h-9 px-6 rounded-lg shadow-sm">
+            Add to Prescription
+          </Button>
+        </div>
+      </form>
+    </div>
+    </div>
+  )
+}
+
 // ── Main Prescription Table ───────────────────────────────────────────────────
 
 export function PrescriptionTable() {
@@ -165,6 +284,7 @@ export function PrescriptionTable() {
   } = useSessionStore()
 
   const [voiceRecognitionActive, setVoiceRecognitionActive] = React.useState(false)
+  const [showAddForm, setShowAddForm] = React.useState(false)
   const voiceRecognitionRef = React.useRef<any>(null)
 
   // ── Voice Command Handler ──────────────────────────────────────────────────
@@ -234,8 +354,9 @@ export function PrescriptionTable() {
     updatePrescription(id, { [field]: value })
   }
 
-  const addEmptyRow = () => {
-    addPrescription(createEmptyPrescription())
+  const handleAddSubmit = (med: ExtractedPrescription) => {
+    addPrescription(med)
+    setShowAddForm(false)
   }
 
   return (
@@ -275,7 +396,7 @@ export function PrescriptionTable() {
               size="sm"
               variant="outline"
               className="gap-1 h-8 text-xs text-[#0050cb] border-[#0050cb]/20 hover:bg-[#0050cb]/5"
-              onClick={addEmptyRow}
+              onClick={() => setShowAddForm(true)}
             >
               <Plus className="h-3.5 w-3.5" /> Add Medicine
             </Button>
@@ -284,6 +405,12 @@ export function PrescriptionTable() {
       </CardHeader>
 
       <CardContent className="p-0">
+        {showAddForm && (
+          <AddMedicineForm
+            onAdd={handleAddSubmit}
+            onCancel={() => setShowAddForm(false)}
+          />
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left">
             <thead className="bg-[#F5F5F7] text-[#8E8E93] text-[10px] uppercase font-bold tracking-wider sticky top-0">
